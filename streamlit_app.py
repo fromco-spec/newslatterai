@@ -1,7 +1,7 @@
 """
 Newsletter AI - Streamlit App
 社内向けメルマガ生成ツール（セキュアなチーム共有版）
-メール認証: @androots.co.jp のみ許可
+メール認証: 許可ドメインのみ（デフォルト: @androots.co.jp）
 """
 
 import os
@@ -24,7 +24,6 @@ from ai_service import generate_newsletter, read_file_content
 MAX_LOGIN_ATTEMPTS = 5
 LOGIN_LOCKOUT_SECONDS = 300
 SESSION_TIMEOUT_MINUTES = 60
-ALLOWED_EMAIL_DOMAIN = "androots.co.jp"
 VERIFICATION_TOKEN_EXPIRE_HOURS = 24
 
 # ---------------------------------------------------------------------------
@@ -46,6 +45,18 @@ def get_secret(key: str, default: str = "") -> str:
         return st.secrets[key]
     except (KeyError, FileNotFoundError):
         return os.environ.get(key, default)
+
+
+def get_allowed_domains() -> list[str]:
+    """許可メールドメインのリストを取得。カンマ区切りで複数指定可能"""
+    raw = get_secret("ALLOWED_EMAIL_DOMAINS", "androots.co.jp")
+    return [d.strip().lower() for d in raw.split(",") if d.strip()]
+
+
+def _domains_display() -> str:
+    """UIに表示する許可ドメイン文字列"""
+    domains = get_allowed_domains()
+    return " / ".join(f"@{d}" for d in domains)
 
 
 # ---------------------------------------------------------------------------
@@ -112,7 +123,7 @@ def init_db():
     c.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
     if c.fetchone()[0] == 0:
         pw = get_secret("ADMIN_DEFAULT_PASSWORD")
-        admin_email = get_secret("ADMIN_EMAIL", f"admin@{ALLOWED_EMAIL_DOMAIN}")
+        admin_email = get_secret("ADMIN_EMAIL", f"admin@{get_allowed_domains()[0]}")
         if not pw:
             st.error("ADMIN_DEFAULT_PASSWORD が未設定です。Secrets または環境変数に設定してください。")
             raise RuntimeError("ADMIN_DEFAULT_PASSWORD is not configured")
@@ -130,9 +141,9 @@ def init_db():
 # Email
 # ---------------------------------------------------------------------------
 def validate_email_domain(email: str) -> bool:
-    """@androots.co.jp ドメインのみ許可"""
+    """許可ドメインのメールアドレスのみ受け付ける"""
     email = email.strip().lower()
-    return email.endswith(f"@{ALLOWED_EMAIL_DOMAIN}")
+    return any(email.endswith(f"@{d}") for d in get_allowed_domains())
 
 
 def send_verification_email(to_email: str, token: str) -> bool:
@@ -306,7 +317,7 @@ def show_auth_page():
                 st.error("メールアドレスとパスワードを入力してください")
                 return
             if not validate_email_domain(email):
-                st.error(f"@{ALLOWED_EMAIL_DOMAIN} のメールアドレスのみ使用できます")
+                st.error(f"{_domains_display()} のメールアドレスのみ使用できます")
                 return
 
             result = authenticate(email, password)
@@ -329,11 +340,11 @@ def show_auth_page():
     # --- 新規登録 ---
     with tab_register:
         st.markdown("## 新規ユーザー登録")
-        st.info(f"@{ALLOWED_EMAIL_DOMAIN} のメールアドレスが必要です")
+        st.info(f"{_domains_display()} のメールアドレスが必要です")
 
         with st.form("register_form"):
             reg_username = st.text_input("表示名", placeholder="例: 山田太郎")
-            reg_email = st.text_input("メールアドレス", placeholder=f"yourname@{ALLOWED_EMAIL_DOMAIN}")
+            reg_email = st.text_input("メールアドレス", placeholder=f"yourname@{get_allowed_domains()[0]}")
             reg_password = st.text_input("パスワード（10文字以上・英数字必須）", type="password")
             reg_password2 = st.text_input("パスワード（確認）", type="password")
             reg_submitted = st.form_submit_button("登録してメール認証を送信", use_container_width=True)
@@ -343,7 +354,7 @@ def show_auth_page():
             if not all([reg_username, reg_email, reg_password, reg_password2]):
                 st.error("全ての項目を入力してください")
             elif not validate_email_domain(reg_email):
-                st.error(f"@{ALLOWED_EMAIL_DOMAIN} のメールアドレスのみ登録できます")
+                st.error(f"{_domains_display()} のメールアドレスのみ登録できます")
             elif len(reg_password) < 10:
                 st.error("パスワードは10文字以上にしてください")
             elif not any(c.isdigit() for c in reg_password) or not any(c.isalpha() for c in reg_password):
@@ -618,7 +629,7 @@ def page_users():
         with col1:
             new_username = st.text_input("表示名")
         with col2:
-            new_email = st.text_input("メールアドレス", placeholder=f"@{ALLOWED_EMAIL_DOMAIN}")
+            new_email = st.text_input("メールアドレス", placeholder=f"{_domains_display()}")
         with col3:
             new_role = st.selectbox("ロール", ["user", "admin"])
         new_password = st.text_input("初期パスワード（10文字以上・英数字必須）", type="password")
@@ -628,7 +639,7 @@ def page_users():
         if not all([new_username, new_email, new_password]):
             st.error("全ての項目を入力してください")
         elif not validate_email_domain(new_email):
-            st.error(f"@{ALLOWED_EMAIL_DOMAIN} のメールアドレスのみ登録できます")
+            st.error(f"{_domains_display()} のメールアドレスのみ登録できます")
         elif len(new_password) < 10:
             st.error("パスワードは10文字以上にしてください")
         elif not any(c.isdigit() for c in new_password) or not any(c.isalpha() for c in new_password):
