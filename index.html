@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メルマガ自動作成AI</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --sidebar-w: 240px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* Login */
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .login-card {
+            background: white;
+            padding: 48px;
+            border-radius: 16px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+            width: 400px;
+            max-width: 90vw;
+        }
+
+        .login-card h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .login-card p {
+            color: var(--text-light);
+            text-align: center;
+            margin-bottom: 32px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover { background: var(--primary-dark); }
+
+        .btn-primary:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover { background: #dc2626; }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn-full { width: 100%; justify-content: center; }
+
+        /* Layout */
+        .app-layout {
+            display: none;
+            min-height: 100vh;
+        }
+
+        .app-layout.active { display: flex; }
+
+        .sidebar {
+            width: var(--sidebar-w);
+            background: #1e293b;
+            color: white;
+            padding: 20px 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            overflow-y: auto;
+        }
+
+        .sidebar-brand {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid #334155;
+            margin-bottom: 16px;
+        }
+
+        .sidebar-brand h2 {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .sidebar-brand span {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .nav-item {
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.2s;
+            color: #cbd5e1;
+        }
+
+        .nav-item:hover { background: #334155; color: white; }
+        .nav-item.active { background: var(--primary); color: white; }
+
+        .nav-section {
+            padding: 12px 20px 6px;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #64748b;
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar-footer {
+            padding: 16px 20px;
+            border-top: 1px solid #334155;
+            margin-top: auto;
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+        }
+
+        .sidebar-footer .user-info {
+            font-size: 13px;
+            margin-bottom: 8px;
+            color: #94a3b8;
+        }
+
+        .sidebar-footer .user-info strong {
+            color: white;
+        }
+
+        .main-content {
+            margin-left: var(--sidebar-w);
+            flex: 1;
+            padding: 24px 32px;
+            min-height: 100vh;
+        }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .page-header {
+            margin-bottom: 24px;
+        }
+
+        .page-header h1 {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .page-header p {
+            color: var(--text-light);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .card h3 {
+            font-size: 16px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* Newsletter editor */
+        .editor-layout {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        .preview-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 0;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .preview-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-light);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+
+        .preview-tab:hover { color: var(--text); }
+        .preview-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+        .preview-frame {
+            border: 1px solid var(--border);
+            border-radius: 0 0 8px 8px;
+            min-height: 600px;
+            background: white;
+        }
+
+        .preview-frame iframe {
+            width: 100%;
+            min-height: 600px;
+            border: none;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .code-view {
+            display: none;
+            min-height: 600px;
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 16px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            overflow: auto;
+            border-radius: 0 0 8px 8px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th, .data-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .data-table th {
+            font-weight: 600;
+            color: var(--text-light);
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-admin { background: #dbeafe; color: #1d4ed8; }
+        .badge-user { background: #f1f5f9; color: #64748b; }
+        .badge-products { background: #dcfce7; color: #16a34a; }
+        .badge-instructions { background: #fef3c7; color: #d97706; }
+        .badge-templates { background: #ede9fe; color: #7c3aed; }
+
+        /* Upload area */
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary);
+            background: #f0f7ff;
+        }
+
+        .upload-area p {
+            color: var(--text-light);
+            font-size: 14px;
+        }
+
+        .upload-area .icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        /* Loading */
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-overlay.active { display: flex; }
+
+        .loading-box {
+            background: white;
+            padding: 32px 48px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .loading-box .spinner {
+            border-color: rgba(37,99,235,0.2);
+            border-top-color: var(--primary);
+            width: 40px;
+            height: 40px;
+            margin-bottom: 16px;
+        }
+
+        /* History */
+        .history-item {
+            padding: 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-item:hover {
+            border-color: var(--primary);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .history-item h4 { font-size: 15px; margin-bottom: 4px; }
+        .history-item .meta { font-size: 12px; color: var(--text-light); }
+
+        /* File select */
+        .file-checkbox-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px;
+        }
+
+        .file-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            font-size: 13px;
+            border-radius: 4px;
+        }
+
+        .file-checkbox-item:hover { background: #f8fafc; }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .alert-error { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+        .alert-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+
+        /* Actions bar */
+        .actions-bar {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 1024px) {
+            .editor-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="loginScreen" class="login-container">
+    <div class="login-card">
+        <h1>メルマガ自動作成AI</h1>
+        <p>チーム専用 - ログインしてください</p>
+        <div id="loginError" class="alert alert-error" style="display:none;"></div>
+        <form id="loginForm">
+            <div class="form-group">
+                <label>ユーザー名</label>
+                <input type="text" id="loginUsername" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label>パスワード</label>
+                <input type="password" id="loginPassword" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-primary btn-full">ログイン</button>
+        </form>
+    </div>
+</div>
+
+<!-- App Layout -->
+<div id="appLayout" class="app-layout">
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <h2>メルマガAI</h2>
+            <span>Newsletter Generator</span>
+        </div>
+
+        <div class="nav-section">メイン</div>
+        <div class="nav-item active" data-page="generate" onclick="navigateTo('generate')">
+            &#9998; メルマガ作成
+        </div>
+        <div class="nav-item" data-page="history" onclick="navigateTo('history')">
+            &#128196; 作成履歴
+        </div>
+
+        <div class="nav-section">管理</div>
+        <div class="nav-item" data-page="files" onclick="navigateTo('files')">
+            &#128193; データ管理
+        </div>
+        <div class="nav-item admin-only" data-page="users" onclick="navigateTo('users')" style="display:none;">
+            &#128101; ユーザー管理
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <strong id="currentUsername"></strong><br>
+                <span id="currentRole"></span>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="logout()" style="color:#94a3b8;border-color:#475569;">ログアウト</button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <!-- Generate Page -->
+        <div id="page-generate" class="page active">
+            <div class="page-header">
+                <h1>メルマガ作成</h1>
+                <p>AIが参考データを基にHTML形式のメルマガを自動生成します</p>
+            </div>
+
+            <div class="editor-layout">
+                <div class="editor-sidebar">
+                    <div class="card">
+                        <h3>作成設定</h3>
+                        <div class="form-group">
+                            <label>作成指示</label>
+                            <textarea id="promptInput" placeholder="例: 春の新作スキンケア商品のキャンペーンメルマガを作成してください。セール情報と商品の特徴を盛り込んでください。"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>トーン</label>
+                            <select id="toneSelect">
+                                <option value="professional">プロフェッショナル</option>
+                                <option value="friendly">フレンドリー</option>
+                                <option value="casual">カジュアル</option>
+                                <option value="luxury">ラグジュアリー</option>
+                                <option value="energetic">エネルギッシュ</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>長さ</label>
+                            <select id="lengthSelect">
+                                <option value="short">短め (300-500文字)</option>
+                                <option value="medium" selected>標準 (500-1000文字)</option>
+                                <option value="long">長め (1000-2000文字)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>参照ファイル (任意・ローカルから直接読み込み)</label>
+                            <input type="file" id="localFileInput" multiple accept=".txt,.csv,.pdf,.md,.text" style="font-size:13px;">
+                            <div id="localFileStatus" style="margin-top:8px;font-size:13px;color:var(--text-light);"></div>
+                        </div>
+                        <button class="btn btn-primary btn-full" id="generateBtn" onclick="generateNewsletter()">
+                            &#9889; 生成する
+                        </button>
+                    </div>
+                </div>
+
+                <div class="editor-main">
+                    <div class="card" style="padding:0;overflow:hidden;">
+                        <div style="padding:16px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);">
+                            <div class="preview-tabs">
+                                <div class="preview-tab active" onclick="switchPreviewTab('preview')">プレビュー</div>
+                                <div class="preview-tab" onclick="switchPreviewTab('code')">HTMLコード</div>
+                            </div>
+                            <div class="actions-bar" id="resultActions" style="display:none;">
+                                <button class="btn btn-outline btn-sm" onclick="copyHtmlCode()">コピー</button>
+                                <button class="btn btn-outline btn-sm" onclick="downloadHtml()">ダウンロード</button>
+                                <button class="btn btn-primary btn-sm" onclick="showSaveDialog()">保存</button>
+                            </div>
+                        </div>
+                        <div id="previewContainer" class="preview-frame">
+                            <iframe id="previewIframe"></iframe>
+                        </div>
+                        <div id="codeContainer" class="code-view"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Page -->
+        <div id="page-history" class="page">
+            <div class="page-header">
+                <h1>作成履歴</h1>
+                <p>過去に作成したメルマガの一覧</p>
+            </div>
+            <div class="card">
+                <div id="historyList"></div>
+            </div>
+        </div>
+
+        <!-- Files Page -->
+        <div id="page-files" class="page">
+            <div class="page-header">
+                <h1>データ管理</h1>
+                <p>メルマガ作成の参考データを管理します</p>
+            </div>
+
+            <div id="uploadSection" class="card admin-only" style="display:none;">
+                <h3>ファイルアップロード</h3>
+                <div class="form-group">
+                    <label>カテゴリ</label>
+                    <select id="uploadCategory">
+                        <option value="products">商品情報</option>
+                        <option value="instructions">指示書</option>
+                        <option value="templates">テンプレート・参考資料</option>
+                    </select>
+                </div>
+                <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                    <div class="icon">&#128228;</div>
+                    <p>クリックしてファイルを選択<br><small>対応形式: TXT, CSV, PDF (最大10MB)</small></p>
+                </div>
+                <input type="file" id="fileInput" accept=".txt,.csv,.pdf,.md,.text" style="display:none;" onchange="uploadFile()">
+                <div id="uploadStatus" style="margin-top:12px;"></div>
+            </div>
+
+            <div class="card">
+                <h3>アップロード済みファイル</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ファイル名</th>
+                            <th>カテゴリ</th>
+                            <th>アップロード者</th>
+                            <th>日時</th>
+                            <th class="admin-only-cell">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fileTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Users Page -->
+        <div id="page-users" class="page">
+            <div class="page-header">
+                <h1>ユーザー管理</h1>
+                <p>チームメンバーのアカウントを管理します</p>
+            </div>
+
+            <div class="card">
+                <h3>新規ユーザー作成</h3>
+                <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
+                    <div class="form-group" style="margin-bottom:0;flex:1;min-width:150px;">
+                        <label>ユーザー名</label>
+                        <input type="text" id="newUsername">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;flex:1;min-width:150px;">
+                        <label>パスワード</label>
+                        <input type="password" id="newPassword">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;width:140px;">
+                        <label>役割</label>
+                        <select id="newRole">
+                            <option value="user">一般ユーザー</option>
+                            <option value="admin">管理者</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="createUser()">作成</button>
+                </div>
+                <div id="createUserStatus" style="margin-top:12px;"></div>
+            </div>
+
+            <div class="card">
+                <h3>ユーザー一覧</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ユーザー名</th>
+                            <th>役割</th>
+                            <th>作成日</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-box">
+        <div class="spinner"></div>
+        <p>AIがメルマガを生成中...</p>
+        <p style="font-size:12px;color:var(--text-light);margin-top:8px;">数十秒かかる場合があります</p>
+    </div>
+</div>
+
+<!-- Save Dialog -->
+<div id="saveDialog" class="loading-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="loading-box" style="text-align:left;min-width:400px;">
+        <h3 style="margin-bottom:16px;">メルマガを保存</h3>
+        <div class="form-group">
+            <label>タイトル</label>
+            <input type="text" id="saveTitle" placeholder="例: 2024年春キャンペーンメルマガ">
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button class="btn btn-outline" onclick="document.getElementById('saveDialog').classList.remove('active')">キャンセル</button>
+            <button class="btn btn-primary" onclick="saveNewsletter()">保存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- State ---
+    let token = localStorage.getItem('token');
+    let userRole = localStorage.getItem('userRole');
+    let username = localStorage.getItem('username');
+    let currentHtml = '';
+
+    // --- API Helper ---
+    async function api(path, options = {}) {
+        const headers = { ...(options.headers || {}) };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (options.body && !(options.body instanceof FormData)) {
+            headers['Content-Type'] = 'application/json';
+        }
+        const res = await fetch(`/api${path}`, { ...options, headers });
+        if (res.status === 401) {
+            logout();
+            throw new Error('認証エラー');
+        }
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: 'エラーが発生しました' }));
+            throw new Error(err.detail || 'エラーが発生しました');
+        }
+        return res.json();
+    }
+
+    // --- Auth ---
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errorEl = document.getElementById('loginError');
+        errorEl.style.display = 'none';
+        try {
+            const data = await api('/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({
+                    username: document.getElementById('loginUsername').value,
+                    password: document.getElementById('loginPassword').value,
+                }),
+            });
+            token = data.access_token;
+            userRole = data.role;
+            username = data.username;
+            localStorage.setItem('token', token);
+            localStorage.setItem('userRole', userRole);
+            localStorage.setItem('username', username);
+            showApp();
+        } catch (err) {
+            errorEl.textContent = err.message;
+            errorEl.style.display = 'block';
+        }
+    });
+
+    function logout() {
+        token = null;
+        userRole = null;
+        username = null;
+        localStorage.removeItem('token');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('username');
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('appLayout').classList.remove('active');
+    }
+
+    function showApp() {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('appLayout').classList.add('active');
+        document.getElementById('currentUsername').textContent = username;
+        document.getElementById('currentRole').textContent = userRole === 'admin' ? '管理者' : '一般ユーザー';
+
+        // Show/hide admin elements
+        document.querySelectorAll('.admin-only').forEach(el => {
+            el.style.display = userRole === 'admin' ? '' : 'none';
+        });
+        document.querySelectorAll('.admin-only-cell').forEach(el => {
+            el.style.display = userRole === 'admin' ? '' : 'none';
+        });
+
+        loadFileSelectList();
+        navigateTo('generate');
+    }
+
+    // --- Navigation ---
+    function navigateTo(page) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+        document.getElementById(`page-${page}`).classList.add('active');
+        document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
+
+        if (page === 'history') loadHistory();
+        if (page === 'files') loadFiles();
+        if (page === 'users' && userRole === 'admin') loadUsers();
+    }
+
+    // --- Local File Reading ---
+    function readLocalFileAsText(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            const ext = file.name.split('.').pop().toLowerCase();
+
+            if (ext === 'pdf') {
+                // PDFはサーバー側で処理するため、Base64で送る
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve({ name: file.name, content: base64, is_pdf: true });
+                };
+                reader.onerror = () => reject(new Error(`${file.name}の読み取りに失敗しました`));
+                reader.readAsDataURL(file);
+            } else {
+                reader.onload = () => resolve({ name: file.name, content: reader.result, is_pdf: false });
+                reader.onerror = () => reject(new Error(`${file.name}の読み取りに失敗しました`));
+                reader.readAsText(file);
+            }
+        });
+    }
+
+    // ファイル選択時にステータス表示
+    document.getElementById('localFileInput').addEventListener('change', function() {
+        const status = document.getElementById('localFileStatus');
+        const count = this.files.length;
+        if (count > 0) {
+            const names = Array.from(this.files).map(f => f.name).join(', ');
+            status.textContent = `${count}件選択: ${names}`;
+        } else {
+            status.textContent = '';
+        }
+    });
+
+    // --- Newsletter Generation ---
+    async function generateNewsletter() {
+        const prompt = document.getElementById('promptInput').value.trim();
+        if (!prompt) {
+            alert('作成指示を入力してください');
+            return;
+        }
+
+        const btn = document.getElementById('generateBtn');
+        btn.disabled = true;
+        document.getElementById('loadingOverlay').classList.add('active');
+
+        try {
+            // ローカルファイルを読み込む
+            const fileInput = document.getElementById('localFileInput');
+            const fileContents = [];
+            if (fileInput.files.length > 0) {
+                for (const file of fileInput.files) {
+                    const data = await readLocalFileAsText(file);
+                    fileContents.push(data);
+                }
+            }
+
+            const result = await api('/newsletter/generate', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt,
+                    tone: document.getElementById('toneSelect').value,
+                    length: document.getElementById('lengthSelect').value,
+                    file_contents: fileContents.length > 0 ? fileContents : null,
+                    selected_files: null,
+                }),
+            });
+
+            currentHtml = result.html;
+            updatePreview(currentHtml);
+            document.getElementById('resultActions').style.display = 'flex';
+        } catch (err) {
+            alert('生成エラー: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            document.getElementById('loadingOverlay').classList.remove('active');
+        }
+    }
+
+    function updatePreview(html) {
+        const iframe = document.getElementById('previewIframe');
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        doc.open();
+        doc.write(html);
+        doc.close();
+
+        document.getElementById('codeContainer').textContent = html;
+    }
+
+    function switchPreviewTab(tab) {
+        document.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
+        event.target.classList.add('active');
+
+        if (tab === 'preview') {
+            document.getElementById('previewContainer').style.display = 'block';
+            document.getElementById('codeContainer').style.display = 'none';
+        } else {
+            document.getElementById('previewContainer').style.display = 'none';
+            document.getElementById('codeContainer').style.display = 'block';
+        }
+    }
+
+    function copyHtmlCode() {
+        navigator.clipboard.writeText(currentHtml).then(() => {
+            alert('HTMLコードをクリップボードにコピーしました');
+        });
+    }
+
+    function downloadHtml() {
+        const blob = new Blob([currentHtml], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'newsletter.html';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function showSaveDialog() {
+        document.getElementById('saveDialog').classList.add('active');
+    }
+
+    async function saveNewsletter() {
+        const title = document.getElementById('saveTitle').value.trim();
+        if (!title) {
+            alert('タイトルを入力してください');
+            return;
+        }
+        try {
+            await api('/newsletter/save', {
+                method: 'POST',
+                body: JSON.stringify({
+                    title,
+                    html_content: currentHtml,
+                    prompt_used: document.getElementById('promptInput').value,
+                }),
+            });
+            document.getElementById('saveDialog').classList.remove('active');
+            document.getElementById('saveTitle').value = '';
+            alert('保存しました');
+        } catch (err) {
+            alert('保存エラー: ' + err.message);
+        }
+    }
+
+    // --- History ---
+    async function loadHistory() {
+        try {
+            const list = await api('/newsletter/history');
+            const container = document.getElementById('historyList');
+            if (list.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-light);padding:20px;text-align:center;">まだ作成履歴がありません</p>';
+                return;
+            }
+            container.innerHTML = list.map(n => `
+                <div class="history-item" onclick="loadNewsletter(${n.id})">
+                    <h4>${escapeHtml(n.title)}</h4>
+                    <div class="meta">作成者: ${escapeHtml(n.created_by)} | ${new Date(n.created_at).toLocaleString('ja-JP')}</div>
+                </div>
+            `).join('');
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    async function loadNewsletter(id) {
+        try {
+            const n = await api(`/newsletter/${id}`);
+            currentHtml = n.html_content;
+            document.getElementById('promptInput').value = n.prompt_used || '';
+            updatePreview(currentHtml);
+            document.getElementById('resultActions').style.display = 'flex';
+            navigateTo('generate');
+        } catch (err) {
+            alert('読み込みエラー: ' + err.message);
+        }
+    }
+
+    // --- File Management ---
+    async function loadFileSelectList() {
+        try {
+            const files = await api('/files');
+            const container = document.getElementById('fileSelectList');
+            if (files.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-light);font-size:13px;padding:4px;">参照ファイルなし（全データ自動参照）</p>';
+                return;
+            }
+            container.innerHTML = files.map(f => `
+                <label class="file-checkbox-item">
+                    <input type="checkbox" class="file-checkbox" value="${f.category}/${f.filename}">
+                    <span class="badge badge-${f.category}">${categoryLabel(f.category)}</span>
+                    ${escapeHtml(f.original_name)}
+                </label>
+            `).join('');
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    async function loadFiles() {
+        try {
+            const files = await api('/files');
+            const tbody = document.getElementById('fileTableBody');
+            if (files.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-light);padding:20px;">ファイルがありません</td></tr>';
+                return;
+            }
+            tbody.innerHTML = files.map(f => `
+                <tr>
+                    <td>${escapeHtml(f.original_name)}</td>
+                    <td><span class="badge badge-${f.category}">${categoryLabel(f.category)}</span></td>
+                    <td>${escapeHtml(f.uploaded_by)}</td>
+                    <td>${new Date(f.uploaded_at).toLocaleString('ja-JP')}</td>
+                    <td class="admin-only-cell" style="display:${userRole === 'admin' ? '' : 'none'}">
+                        <button class="btn btn-danger btn-sm" onclick="deleteFile(${f.id})">削除</button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    async function uploadFile() {
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('category', document.getElementById('uploadCategory').value);
+
+        const status = document.getElementById('uploadStatus');
+        status.innerHTML = '<p style="color:var(--primary);">アップロード中...</p>';
+
+        try {
+            await api('/files/upload', { method: 'POST', body: formData });
+            status.innerHTML = '<div class="alert alert-success">アップロード完了</div>';
+            fileInput.value = '';
+            loadFiles();
+            loadFileSelectList();
+        } catch (err) {
+            status.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+        }
+    }
+
+    async function deleteFile(id) {
+        if (!confirm('このファイルを削除しますか？')) return;
+        try {
+            await api(`/files/${id}`, { method: 'DELETE' });
+            loadFiles();
+            loadFileSelectList();
+        } catch (err) {
+            alert('削除エラー: ' + err.message);
+        }
+    }
+
+    // --- User Management ---
+    async function loadUsers() {
+        try {
+            const users = await api('/users');
+            const tbody = document.getElementById('userTableBody');
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td>${escapeHtml(u.username)}</td>
+                    <td><span class="badge badge-${u.role}">${u.role === 'admin' ? '管理者' : '一般ユーザー'}</span></td>
+                    <td>${new Date(u.created_at).toLocaleString('ja-JP')}</td>
+                    <td>
+                        ${u.username !== 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${escapeHtml(u.username)}')">削除</button>` : '-'}
+                    </td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    async function createUser() {
+        const uname = document.getElementById('newUsername').value.trim();
+        const pass = document.getElementById('newPassword').value;
+        const role = document.getElementById('newRole').value;
+        const status = document.getElementById('createUserStatus');
+
+        if (!uname || !pass) {
+            status.innerHTML = '<div class="alert alert-error">ユーザー名とパスワードを入力してください</div>';
+            return;
+        }
+        if (pass.length < 6) {
+            status.innerHTML = '<div class="alert alert-error">パスワードは6文字以上にしてください</div>';
+            return;
+        }
+
+        try {
+            await api('/users', {
+                method: 'POST',
+                body: JSON.stringify({ username: uname, password: pass, role }),
+            });
+            status.innerHTML = '<div class="alert alert-success">ユーザーを作成しました</div>';
+            document.getElementById('newUsername').value = '';
+            document.getElementById('newPassword').value = '';
+            loadUsers();
+        } catch (err) {
+            status.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+        }
+    }
+
+    async function deleteUser(uname) {
+        if (!confirm(`${uname} を削除しますか？`)) return;
+        try {
+            await api(`/users/${uname}`, { method: 'DELETE' });
+            loadUsers();
+        } catch (err) {
+            alert('削除エラー: ' + err.message);
+        }
+    }
+
+    // --- Utils ---
+    function categoryLabel(cat) {
+        const labels = { products: '商品情報', instructions: '指示書', templates: 'テンプレート' };
+        return labels[cat] || cat;
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // --- Init ---
+    if (token) {
+        api('/auth/me').then(() => showApp()).catch(() => logout());
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,40 @@
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+*.egg-info/
+
+# Database
+data/app.db
+data/*.db
+
+# Uploaded files (may contain sensitive data)
+uploads/products/*
+uploads/instructions/*
+uploads/templates/*
+!uploads/products/.gitkeep
+!uploads/instructions/.gitkeep
+!uploads/templates/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node (legacy)
+node_modules/
