@@ -13,8 +13,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 import streamlit as st
-from passlib.context import CryptContext
 
 from ai_service import generate_newsletter, read_file_content
 
@@ -36,7 +36,12 @@ ALLOWED_CATEGORIES = {"products": "商品情報", "instructions": "指示書", "
 ALLOWED_EXTENSIONS = {".txt", ".csv", ".pdf", ".text", ".md"}
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
 
 
 def get_secret(key: str, default: str = "") -> str:
@@ -127,7 +132,7 @@ def init_db():
         if not pw:
             st.error("ADMIN_DEFAULT_PASSWORD が未設定です。Secrets または環境変数に設定してください。")
             raise RuntimeError("ADMIN_DEFAULT_PASSWORD is not configured")
-        hashed = pwd_context.hash(pw)
+        hashed = hash_password(pw)
         c.execute(
             "INSERT INTO users (username, email, hashed_password, role, is_verified) VALUES (?, ?, ?, ?, ?)",
             ("admin", admin_email, hashed, "admin", 1),
@@ -213,7 +218,7 @@ def authenticate(email: str, password: str) -> dict | None:
     db = get_db()
     user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
     db.close()
-    if user and pwd_context.verify(password, user["hashed_password"]):
+    if user and verify_password(password, user["hashed_password"]):
         if not user["is_verified"]:
             return {"error": "unverified"}
         return {"username": user["username"], "email": user["email"], "role": user["role"]}
@@ -373,7 +378,7 @@ def show_auth_page():
                     st.error("このメールアドレスまたは表示名は既に使用されています")
                 else:
                     token = uuid.uuid4().hex
-                    hashed = pwd_context.hash(reg_password)
+                    hashed = hash_password(reg_password)
                     db.execute(
                         """INSERT INTO users
                            (username, email, hashed_password, role, is_verified, verification_token, token_created_at)
@@ -655,7 +660,7 @@ def page_users():
                 st.error("このメールアドレスまたは表示名は既に使用されています")
             else:
                 token = uuid.uuid4().hex
-                hashed = pwd_context.hash(new_password)
+                hashed = hash_password(new_password)
                 db.execute(
                     """INSERT INTO users
                        (username, email, hashed_password, role, is_verified, verification_token, token_created_at)
