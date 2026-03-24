@@ -41,7 +41,7 @@ if errorlevel 1 (
 
 echo.
 echo Open: http://localhost:8000
-echo Login: admin / admin1234
+echo Login: .env の ADMIN_DEFAULT_PASSWORD で設定したパスワードを使用
 echo Quit:  Press Ctrl+C
 echo ====================================
 echo.

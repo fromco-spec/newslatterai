@@ -89,7 +89,13 @@ def init_db():
     # Default admin
     c.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
     if c.fetchone()[0] == 0:
-        pw = get_secret("ADMIN_DEFAULT_PASSWORD", "admin1234")
+        pw = get_secret("ADMIN_DEFAULT_PASSWORD")
+        if not pw:
+            st.error(
+                "ADMIN_DEFAULT_PASSWORD が未設定です。"
+                "Streamlit の Secrets または環境変数に設定してください。"
+            )
+            raise RuntimeError("ADMIN_DEFAULT_PASSWORD is not configured")
         hashed = pwd_context.hash(pw)
         c.execute(
             "INSERT INTO users (username, hashed_password, role) VALUES (?, ?, ?)",

@@ -53,7 +53,12 @@ def init_db():
     # Create default admin if not exists
     cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
     if cursor.fetchone()[0] == 0:
-        default_pw = os.environ.get("ADMIN_DEFAULT_PASSWORD", "admin1234")
+        default_pw = os.environ.get("ADMIN_DEFAULT_PASSWORD", "")
+        if not default_pw:
+            raise RuntimeError(
+                "ADMIN_DEFAULT_PASSWORD が未設定です。"
+                ".env ファイルに ADMIN_DEFAULT_PASSWORD を設定してください。"
+            )
         hashed = pwd_context.hash(default_pw)
         cursor.execute(
             "INSERT INTO users (username, hashed_password, role) VALUES (?, ?, ?)",

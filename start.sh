@@ -17,7 +17,7 @@ fi
 
 echo ""
 echo "ブラウザで http://localhost:8000 を開いてください"
-echo "初期ログイン: admin / admin1234"
+echo "初期ログイン: admin / .env の ADMIN_DEFAULT_PASSWORD で設定したパスワード"
 echo "終了するには Ctrl+C を押してください"
 echo "===================================="
 echo ""
