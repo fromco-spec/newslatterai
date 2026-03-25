@@ -39,190 +39,377 @@ MAX_UPLOAD_SIZE = 10 * 1024 * 1024
 
 
 # ---------------------------------------------------------------------------
-# Apple-inspired CSS
+# UI Design System — Notion / Airbnb inspired
 # ---------------------------------------------------------------------------
 CUSTOM_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+/* ── Design Tokens ── */
 :root {
-    --bg: #f5f5f7;
-    --card: #ffffff;
-    --text: #1d1d1f;
-    --text-secondary: #86868b;
-    --accent: #0071e3;
-    --accent-hover: #0077ED;
-    --border: #d2d2d7;
-    --success: #34c759;
-    --danger: #ff3b30;
+    --bg:             #FAFAFA;
+    --bg-subtle:      #F1F5F9;
+    --card:           #FFFFFF;
+    --text:           #333333;
+    --text-secondary: #64748B;
+    --text-muted:     #94A3B8;
+    --main:           #1E293B;
+    --accent:         #FB7185;
+    --accent-hover:   #F43F5E;
+    --accent-soft:    #FFF1F2;
+    --border:         #F1F5F9;
+    --border-hover:   #E2E8F0;
+    --shadow-sm:      0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md:      0 4px 16px rgba(0,0,0,0.06);
+    --shadow-lg:      0 8px 30px rgba(0,0,0,0.08);
+    --radius:         14px;
+    --radius-sm:      10px;
+    --radius-pill:    999px;
+    --transition:     all 0.2s cubic-bezier(0.4,0,0.2,1);
 }
 
+/* ── Global ── */
 html, body, [class*="css"] {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    color: var(--text) !important;
+    -webkit-font-smoothing: antialiased;
 }
-
+.main {
+    background: var(--bg) !important;
+}
 .main .block-container {
-    max-width: 960px;
-    padding: 2rem 1.5rem;
+    max-width: 920px;
+    padding: 2.5rem 2rem 4rem;
 }
 
-/* Sidebar */
+/* ── Sidebar ── */
 section[data-testid="stSidebar"] {
-    background: var(--card);
-    border-right: 1px solid var(--border);
+    background: var(--main) !important;
+    border-right: none !important;
+}
+section[data-testid="stSidebar"] * {
+    color: #CBD5E1 !important;
+}
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] strong {
+    color: #F8FAFC !important;
 }
 section[data-testid="stSidebar"] .stRadio > label {
-    font-size: 0.85rem;
+    font-size: 0.875rem;
     font-weight: 500;
+    padding: 0.1rem 0;
+}
+section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label {
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+}
+section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label:hover {
+    background: rgba(255,255,255,0.08);
+}
+section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label[data-checked="true"],
+section[data-testid="stSidebar"] .stRadio [role="radiogroup"] [aria-checked="true"] {
+    background: rgba(251,113,133,0.15) !important;
+    color: #FB7185 !important;
+}
+section[data-testid="stSidebar"] hr {
+    border-color: rgba(255,255,255,0.1) !important;
+}
+section[data-testid="stSidebar"] .stButton > button {
+    background: rgba(255,255,255,0.08) !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    color: #CBD5E1 !important;
+}
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background: rgba(255,255,255,0.14) !important;
+    color: #F8FAFC !important;
 }
 
-/* Cards */
+/* ── Cards ── */
 .app-card {
     background: var(--card);
-    border-radius: 16px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
+    border-radius: var(--radius);
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.25rem;
     border: 1px solid var(--border);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+}
+.app-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--border-hover);
 }
 
-/* Headers */
+/* ── Page headers ── */
 .page-title {
-    font-size: 2rem;
+    font-size: 1.875rem;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
+    color: var(--main);
     margin-bottom: 0.25rem;
-    color: var(--text);
+    line-height: 1.2;
 }
 .page-subtitle {
-    font-size: 1rem;
+    font-size: 0.95rem;
     color: var(--text-secondary);
     font-weight: 400;
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
+    line-height: 1.5;
 }
 
-/* Auth page */
+/* ── Auth ── */
 .auth-container {
-    max-width: 420px;
-    margin: 4rem auto;
+    max-width: 400px;
+    margin: 3rem auto;
 }
 .auth-logo {
-    font-size: 2.5rem;
+    font-size: 1.75rem;
     font-weight: 700;
     text-align: center;
     letter-spacing: -0.03em;
-    margin-bottom: 0.25rem;
+    color: var(--main);
+    margin-bottom: 0.125rem;
 }
 .auth-tagline {
     text-align: center;
-    color: var(--text-secondary);
-    font-size: 0.95rem;
-    margin-bottom: 2rem;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    font-weight: 400;
+    margin-bottom: 2.5rem;
 }
 
-/* Buttons */
+/* ── Buttons ── */
 .stButton > button {
-    border-radius: 12px !important;
+    border-radius: var(--radius-sm) !important;
     font-weight: 500 !important;
-    padding: 0.5rem 1.5rem !important;
-    transition: all 0.2s ease !important;
-    border: 1px solid var(--border) !important;
+    font-size: 0.875rem !important;
+    padding: 0.625rem 1.5rem !important;
+    transition: var(--transition) !important;
+    border: 1px solid var(--border-hover) !important;
+    background: var(--card) !important;
+    color: var(--text) !important;
+    box-shadow: var(--shadow-sm) !important;
 }
 .stButton > button:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+    box-shadow: var(--shadow-md) !important;
+    border-color: #CBD5E1 !important;
 }
-.stButton > button[kind="primary"] {
+.stButton > button:active {
+    transform: translateY(0);
+}
+.stButton > button[kind="primary"],
+.stFormSubmitButton > button[kind="primary"] {
     background: var(--accent) !important;
-    color: white !important;
+    color: #FFFFFF !important;
     border: none !important;
+    box-shadow: 0 2px 8px rgba(251,113,133,0.3) !important;
+}
+.stButton > button[kind="primary"]:hover,
+.stFormSubmitButton > button[kind="primary"]:hover {
+    background: var(--accent-hover) !important;
+    box-shadow: 0 4px 16px rgba(251,113,133,0.35) !important;
+}
+.stFormSubmitButton > button {
+    border-radius: var(--radius-sm) !important;
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+    padding: 0.625rem 1.5rem !important;
+    transition: var(--transition) !important;
 }
 
-/* Form */
+/* ── Form inputs ── */
 .stTextInput > div > div > input,
-.stTextArea > div > div > textarea,
-.stSelectbox > div > div {
-    border-radius: 10px !important;
-    border: 1px solid var(--border) !important;
+.stTextArea > div > div > textarea {
+    border-radius: var(--radius-sm) !important;
+    border: 1px solid var(--border-hover) !important;
     font-family: 'Inter', sans-serif !important;
+    font-size: 0.9rem !important;
+    padding: 0.75rem 1rem !important;
+    background: var(--card) !important;
+    color: var(--text) !important;
+    transition: var(--transition) !important;
 }
 .stTextInput > div > div > input:focus,
 .stTextArea > div > div > textarea:focus {
     border-color: var(--accent) !important;
-    box-shadow: 0 0 0 3px rgba(0,113,227,0.15) !important;
+    box-shadow: 0 0 0 3px var(--accent-soft) !important;
+}
+.stTextInput > div > div > input::placeholder,
+.stTextArea > div > div > textarea::placeholder {
+    color: var(--text-muted) !important;
+}
+.stSelectbox > div > div {
+    border-radius: var(--radius-sm) !important;
+    border: 1px solid var(--border-hover) !important;
+}
+.stMultiSelect > div > div {
+    border-radius: var(--radius-sm) !important;
+    border: 1px solid var(--border-hover) !important;
 }
 
-/* Tabs */
+/* ── Tabs ── */
 .stTabs [data-baseweb="tab-list"] {
-    gap: 0;
-    background: var(--bg);
-    border-radius: 10px;
-    padding: 3px;
+    gap: 4px;
+    background: var(--bg-subtle);
+    border-radius: var(--radius-sm);
+    padding: 4px;
 }
 .stTabs [data-baseweb="tab"] {
     border-radius: 8px;
     font-weight: 500;
-    font-size: 0.85rem;
-    padding: 0.5rem 1rem;
+    font-size: 0.825rem;
+    padding: 0.5rem 1.125rem;
+    color: var(--text-secondary);
+    transition: var(--transition);
+}
+.stTabs [data-baseweb="tab"]:hover {
+    color: var(--text);
 }
 .stTabs [aria-selected="true"] {
     background: var(--card) !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    color: var(--main) !important;
+    box-shadow: var(--shadow-sm) !important;
+    font-weight: 600 !important;
 }
 
-/* Expander */
+/* ── Expander ── */
 .streamlit-expanderHeader {
-    border-radius: 12px !important;
+    border-radius: var(--radius-sm) !important;
     font-weight: 500 !important;
+    font-size: 0.9rem !important;
+    color: var(--text) !important;
+    padding: 0.875rem 1rem !important;
+    background: var(--bg-subtle) !important;
+    border: 1px solid var(--border) !important;
+    transition: var(--transition) !important;
+}
+.streamlit-expanderHeader:hover {
+    background: var(--border) !important;
+}
+.streamlit-expanderContent {
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
-/* Metric */
+/* ── Stat cards ── */
 .stat-row {
     display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
+    gap: 1.25rem;
+    margin: 1.5rem 0;
 }
 .stat-box {
     flex: 1;
-    background: var(--bg);
-    border-radius: 12px;
-    padding: 1rem;
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 1.25rem;
     text-align: center;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
 }
 .stat-value {
-    font-size: 1.5rem;
+    font-size: 1.75rem;
     font-weight: 700;
-    color: var(--text);
+    color: var(--main);
+    letter-spacing: -0.02em;
 }
 .stat-label {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
+    font-size: 0.7rem;
+    color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
+    margin-top: 0.25rem;
 }
 
-/* Notification badges */
+/* ── Badges ── */
 .badge-ok {
     display: inline-block;
-    background: #e8f8ee;
-    color: #1a7f37;
-    padding: 2px 10px;
-    border-radius: 20px;
-    font-size: 0.75rem;
+    background: #ECFDF5;
+    color: #059669;
+    padding: 3px 12px;
+    border-radius: var(--radius-pill);
+    font-size: 0.7rem;
     font-weight: 600;
+    letter-spacing: 0.02em;
 }
 .badge-pending {
     display: inline-block;
-    background: #fff3e0;
-    color: #e65100;
-    padding: 2px 10px;
-    border-radius: 20px;
-    font-size: 0.75rem;
+    background: #FFF7ED;
+    color: #EA580C;
+    padding: 3px 12px;
+    border-radius: var(--radius-pill);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+.badge-info {
+    display: inline-block;
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 3px 12px;
+    border-radius: var(--radius-pill);
+    font-size: 0.7rem;
     font-weight: 600;
 }
 
-/* Hide Streamlit branding */
+/* ── Alerts ── */
+.stAlert > div {
+    border-radius: var(--radius-sm) !important;
+    border: none !important;
+    font-size: 0.875rem;
+}
+
+/* ── Dividers ── */
+hr {
+    border: none !important;
+    border-top: 1px solid var(--border) !important;
+    margin: 2rem 0 !important;
+}
+
+/* ── Download button ── */
+.stDownloadButton > button {
+    border-radius: var(--radius-sm) !important;
+    font-weight: 500 !important;
+    border: 1px solid var(--border-hover) !important;
+    background: var(--card) !important;
+    transition: var(--transition) !important;
+}
+.stDownloadButton > button:hover {
+    background: var(--bg-subtle) !important;
+    border-color: #CBD5E1 !important;
+}
+
+/* ── Checkbox / Radio ── */
+.stCheckbox label span,
+.stRadio label span {
+    font-size: 0.875rem !important;
+}
+
+/* ── File uploader ── */
+.stFileUploader > div {
+    border-radius: var(--radius-sm) !important;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+}
+
+/* ── Hide Streamlit chrome ── */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
@@ -399,14 +586,14 @@ def send_verification_email(to_email: str, token: str) -> bool:
         action_html = f"""
             <p style="margin:30px 0;text-align:center;">
                 <a href="{verify_link}"
-                   style="background:#0071e3;color:#fff;padding:14px 32px;
+                   style="background:#FB7185;color:#fff;padding:14px 32px;
                           text-decoration:none;border-radius:12px;font-size:16px;
                           font-weight:600;display:inline-block;">
                     メールアドレスを確認する
                 </a>
             </p>
             <p style="color:#86868b;font-size:13px;">ボタンが動かない場合:<br>
-               <a href="{verify_link}" style="color:#0071e3;word-break:break-all;">{verify_link}</a></p>
+               <a href="{verify_link}" style="color:#FB7185;word-break:break-all;">{verify_link}</a></p>
         """
     else:
         action_text = f"以下の認証コードをアプリの「認証コード入力」画面に入力してください。"
@@ -1180,14 +1367,17 @@ def main():
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
     with st.sidebar:
-        st.markdown("### Newsletter AI")
-        st.caption(f"{st.session_state.user['username']}  ·  {st.session_state.user['email']}")
+        st.markdown("#### Newsletter AI")
+        st.markdown(f"<span style='font-size:0.8rem;opacity:0.7;'>{st.session_state.user['username']}</span>", unsafe_allow_html=True)
+
+        st.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
 
         pages = ["メルマガ生成", "生成履歴", "ファイル管理"]
         if is_admin():
             pages += ["指示書設定", "ユーザー管理"]
         page = st.radio("メニュー", pages, label_visibility="collapsed")
 
+        st.markdown("<div style='flex:1;'></div>", unsafe_allow_html=True)
         st.divider()
         if st.button("ログアウト", use_container_width=True):
             st.session_state.clear()
