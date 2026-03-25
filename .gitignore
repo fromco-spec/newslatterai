@@ -21,9 +21,11 @@ data/*.db
 uploads/products/*
 uploads/instructions/*
 uploads/templates/*
+uploads/decoration/*
 !uploads/products/.gitkeep
 !uploads/instructions/.gitkeep
 !uploads/templates/.gitkeep
+!uploads/decoration/.gitkeep
 
 # OS
 .DS_Store

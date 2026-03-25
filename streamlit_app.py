@@ -29,7 +29,12 @@ VERIFICATION_TOKEN_EXPIRE_HOURS = 24
 BASE_DIR = os.path.dirname(__file__)
 DB_PATH = os.path.join(BASE_DIR, "data", "app.db")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-ALLOWED_CATEGORIES = {"products": "商品情報", "instructions": "指示書", "templates": "テンプレート"}
+ALLOWED_CATEGORIES = {
+    "products": "商品情報",
+    "instructions": "指示書",
+    "templates": "テンプレート",
+    "decoration": "装飾テンプレート",
+}
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024
 
 
@@ -739,16 +744,31 @@ def page_generate():
 
     st.markdown("---")
 
+    # Decoration templates
+    db_conn = get_db()
+    deco_files = db_conn.execute(
+        "SELECT * FROM uploaded_files WHERE category = 'decoration' ORDER BY original_name"
+    ).fetchall()
+    db_conn.close()
+
+    template_options = {"none": "テンプレートなし（デフォルト）"}
+    for f in deco_files:
+        template_options[f"{f['category']}/{f['filename']}"] = f["original_name"]
+
+    selected_template = st.selectbox("装飾テンプレート", list(template_options.keys()),
+                                     format_func=lambda x: template_options[x])
+
+    if selected_template != "none":
+        template_path = os.path.join(UPLOAD_DIR, selected_template)
+        if os.path.exists(template_path):
+            with st.expander("テンプレート プレビュー"):
+                tpl_html = read_file_content(template_path)
+                st.components.v1.html(tpl_html, height=350, scrolling=True)
+
     with st.form("generate_form"):
         prompt = st.text_area("作成指示", placeholder="例: 春の新商品キャンペーンのお知らせメルマガを作成してください", height=100)
-        col1, col2 = st.columns(2)
-        with col1:
-            tone = st.selectbox("トーン", ["professional", "casual", "friendly", "formal"],
-                                format_func=lambda x: {"professional": "プロフェッショナル", "casual": "カジュアル",
-                                                       "friendly": "フレンドリー", "formal": "フォーマル"}[x])
-        with col2:
-            length = st.selectbox("長さ", ["short", "medium", "long"], index=1,
-                                  format_func=lambda x: {"short": "短め", "medium": "標準", "long": "長め"}[x])
+        length = st.selectbox("ボリューム", ["short", "medium", "long"], index=1,
+                              format_func=lambda x: {"short": "短め（800〜1200字）", "medium": "標準（1500〜2500字）", "long": "長め（3000〜5000字）"}[x])
         submitted = st.form_submit_button("生成する", use_container_width=True, type="primary")
 
     if submitted:
@@ -769,13 +789,23 @@ def page_generate():
                         content = _fetch_notion_page_content(notion_token, page_meta["id"])
                         extra_context += f"\n### {page_meta['label']}\n{content}\n"
 
+                # Extract style from decoration template
+                template_style_summary = None
+                if selected_template != "none":
+                    from ai_service import extract_style_summary
+                    tpl_path = os.path.join(UPLOAD_DIR, selected_template)
+                    if os.path.exists(tpl_path):
+                        tpl_content = read_file_content(tpl_path)
+                        template_style_summary = extract_style_summary(tpl_content)
+
                 # Load instructions
                 footer_text = get_instruction("footer")
                 custom_instructions = get_instruction("custom_instructions")
 
                 import asyncio
                 result = asyncio.run(generate_newsletter(
-                    prompt=prompt, tone=tone, length=length,
+                    prompt=prompt, length=length,
+                    template_style_summary=template_style_summary,
                     selected_files=selected_files if selected_files else None,
                     extra_context=extra_context if extra_context else None,
                     footer_html=footer_text if footer_text else None,
@@ -876,7 +906,7 @@ def page_files():
                 category = st.selectbox("カテゴリ", list(ALLOWED_CATEGORIES.keys()),
                                         format_func=lambda x: ALLOWED_CATEGORIES[x])
             with col2:
-                uploaded = st.file_uploader("ファイル", type=["txt", "csv", "pdf", "text", "md"],
+                uploaded = st.file_uploader("ファイル", type=["txt", "csv", "pdf", "text", "md", "html", "htm"],
                                             label_visibility="collapsed")
             upload_btn = st.form_submit_button("アップロード", use_container_width=True)
 
