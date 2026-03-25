@@ -1,7 +1,6 @@
 """
 Newsletter AI - Streamlit App
 社内向けメルマガ生成ツール（セキュアなチーム共有版）
-メール認証: 許可ドメインのみ（デフォルト: @androots.co.jp）
 """
 
 import os
@@ -9,6 +8,7 @@ import uuid
 import sqlite3
 import smtplib
 import time
+import json
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta, timezone
@@ -19,23 +19,215 @@ import streamlit as st
 from ai_service import generate_newsletter, read_file_content
 
 # ---------------------------------------------------------------------------
-# セキュリティ定数
+# Constants
 # ---------------------------------------------------------------------------
 MAX_LOGIN_ATTEMPTS = 5
 LOGIN_LOCKOUT_SECONDS = 300
 SESSION_TIMEOUT_MINUTES = 60
 VERIFICATION_TOKEN_EXPIRE_HOURS = 24
 
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
 BASE_DIR = os.path.dirname(__file__)
 DB_PATH = os.path.join(BASE_DIR, "data", "app.db")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 ALLOWED_CATEGORIES = {"products": "商品情報", "instructions": "指示書", "templates": "テンプレート"}
-ALLOWED_EXTENSIONS = {".txt", ".csv", ".pdf", ".text", ".md"}
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024
 
+
+# ---------------------------------------------------------------------------
+# Apple-inspired CSS
+# ---------------------------------------------------------------------------
+CUSTOM_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --text-secondary: #86868b;
+    --accent: #0071e3;
+    --accent-hover: #0077ED;
+    --border: #d2d2d7;
+    --success: #34c759;
+    --danger: #ff3b30;
+}
+
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    color: var(--text);
+}
+
+.main .block-container {
+    max-width: 960px;
+    padding: 2rem 1.5rem;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background: var(--card);
+    border-right: 1px solid var(--border);
+}
+section[data-testid="stSidebar"] .stRadio > label {
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* Cards */
+.app-card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+/* Headers */
+.page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.25rem;
+    color: var(--text);
+}
+.page-subtitle {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+    margin-bottom: 2rem;
+}
+
+/* Auth page */
+.auth-container {
+    max-width: 420px;
+    margin: 4rem auto;
+}
+.auth-logo {
+    font-size: 2.5rem;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.25rem;
+}
+.auth-tagline {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+}
+
+/* Buttons */
+.stButton > button {
+    border-radius: 12px !important;
+    font-weight: 500 !important;
+    padding: 0.5rem 1.5rem !important;
+    transition: all 0.2s ease !important;
+    border: 1px solid var(--border) !important;
+}
+.stButton > button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+}
+.stButton > button[kind="primary"] {
+    background: var(--accent) !important;
+    color: white !important;
+    border: none !important;
+}
+
+/* Form */
+.stTextInput > div > div > input,
+.stTextArea > div > div > textarea,
+.stSelectbox > div > div {
+    border-radius: 10px !important;
+    border: 1px solid var(--border) !important;
+    font-family: 'Inter', sans-serif !important;
+}
+.stTextInput > div > div > input:focus,
+.stTextArea > div > div > textarea:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 3px rgba(0,113,227,0.15) !important;
+}
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0;
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 3px;
+}
+.stTabs [data-baseweb="tab"] {
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.85rem;
+    padding: 0.5rem 1rem;
+}
+.stTabs [aria-selected="true"] {
+    background: var(--card) !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* Expander */
+.streamlit-expanderHeader {
+    border-radius: 12px !important;
+    font-weight: 500 !important;
+}
+
+/* Metric */
+.stat-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.stat-box {
+    flex: 1;
+    background: var(--bg);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+}
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+}
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Notification badges */
+.badge-ok {
+    display: inline-block;
+    background: #e8f8ee;
+    color: #1a7f37;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.badge-pending {
+    display: inline-block;
+    background: #fff3e0;
+    color: #e65100;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* Hide Streamlit branding */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+</style>
+"""
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
@@ -45,7 +237,6 @@ def verify_password(password: str, hashed: str) -> bool:
 
 
 def get_secret(key: str, default: str = "") -> str:
-    """st.secrets -> 環境変数 -> デフォルトの優先順位で取得"""
     try:
         return st.secrets[key]
     except (KeyError, FileNotFoundError):
@@ -53,15 +244,17 @@ def get_secret(key: str, default: str = "") -> str:
 
 
 def get_allowed_domains() -> list[str]:
-    """許可メールドメインのリストを取得。カンマ区切りで複数指定可能"""
     raw = get_secret("ALLOWED_EMAIL_DOMAINS", "androots.co.jp")
     return [d.strip().lower() for d in raw.split(",") if d.strip()]
 
 
 def _domains_display() -> str:
-    """UIに表示する許可ドメイン文字列"""
-    domains = get_allowed_domains()
-    return " / ".join(f"@{d}" for d in domains)
+    return " / ".join(f"@{d}" for d in get_allowed_domains())
+
+
+def validate_email_domain(email: str) -> bool:
+    email = email.strip().lower()
+    return any(email.endswith(f"@{d}") for d in get_allowed_domains())
 
 
 # ---------------------------------------------------------------------------
@@ -92,16 +285,15 @@ def init_db():
         )
     """)
 
-    # Migrate: add columns if they don't exist (for existing DBs)
     existing_cols = {row[1] for row in c.execute("PRAGMA table_info(users)").fetchall()}
-    if "email" not in existing_cols:
-        c.execute("ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''")
-    if "is_verified" not in existing_cols:
-        c.execute("ALTER TABLE users ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0")
-    if "verification_token" not in existing_cols:
-        c.execute("ALTER TABLE users ADD COLUMN verification_token TEXT")
-    if "token_created_at" not in existing_cols:
-        c.execute("ALTER TABLE users ADD COLUMN token_created_at TIMESTAMP")
+    for col, definition in [
+        ("email", "TEXT DEFAULT ''"),
+        ("is_verified", "INTEGER NOT NULL DEFAULT 0"),
+        ("verification_token", "TEXT"),
+        ("token_created_at", "TIMESTAMP"),
+    ]:
+        if col not in existing_cols:
+            c.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS newsletters (
@@ -124,13 +316,24 @@ def init_db():
         )
     """)
 
-    # Default admin (pre-verified)
+    # Instructions table for Claude directives
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS instructions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key TEXT UNIQUE NOT NULL,
+            value TEXT NOT NULL,
+            updated_by TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Default admin
     c.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
     if c.fetchone()[0] == 0:
         pw = get_secret("ADMIN_DEFAULT_PASSWORD")
         admin_email = get_secret("ADMIN_EMAIL", f"admin@{get_allowed_domains()[0]}")
         if not pw:
-            st.error("ADMIN_DEFAULT_PASSWORD が未設定です。Secrets または環境変数に設定してください。")
+            st.error("ADMIN_DEFAULT_PASSWORD が未設定です。Secrets に設定してください。")
             raise RuntimeError("ADMIN_DEFAULT_PASSWORD is not configured")
         hashed = hash_password(pw)
         c.execute(
@@ -143,16 +346,31 @@ def init_db():
 
 
 # ---------------------------------------------------------------------------
+# Instructions (Claude directives) helpers
+# ---------------------------------------------------------------------------
+def get_instruction(key: str, default: str = "") -> str:
+    db = get_db()
+    row = db.execute("SELECT value FROM instructions WHERE key = ?", (key,)).fetchone()
+    db.close()
+    return row["value"] if row else default
+
+
+def set_instruction(key: str, value: str, username: str = ""):
+    db = get_db()
+    db.execute(
+        """INSERT INTO instructions (key, value, updated_by, updated_at)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_by=excluded.updated_by, updated_at=excluded.updated_at""",
+        (key, value, username, datetime.now(timezone.utc).isoformat()),
+    )
+    db.commit()
+    db.close()
+
+
+# ---------------------------------------------------------------------------
 # Email
 # ---------------------------------------------------------------------------
-def validate_email_domain(email: str) -> bool:
-    """許可ドメインのメールアドレスのみ受け付ける"""
-    email = email.strip().lower()
-    return any(email.endswith(f"@{d}") for d in get_allowed_domains())
-
-
 def send_verification_email(to_email: str, token: str) -> bool:
-    """確認メールを送信"""
     smtp_host = get_secret("SMTP_HOST")
     smtp_port = int(get_secret("SMTP_PORT", "587"))
     smtp_user = get_secret("SMTP_USER")
@@ -163,38 +381,51 @@ def send_verification_email(to_email: str, token: str) -> bool:
         st.error("SMTP設定が不完全です。管理者に連絡してください。")
         return False
 
-    app_url = get_secret("APP_URL", "")
-    if app_url:
-        verify_link = f"{app_url}?verify={token}"
-    else:
-        verify_link = f"（アプリを開いて認証コード入力画面で以下のコードを入力してください）\n認証コード: {token}"
+    app_url = get_secret("APP_URL", "").rstrip("/")
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = "【Newsletter AI】メールアドレスの確認"
     msg["From"] = smtp_from
     msg["To"] = to_email
 
-    text_body = f"""Newsletter AI へのご登録ありがとうございます。
+    if app_url:
+        verify_link = f"{app_url}/?verify={token}"
+        action_text = f"以下のボタンをクリックしてメールアドレスを確認してください。"
+        action_html = f"""
+            <p style="margin:30px 0;text-align:center;">
+                <a href="{verify_link}"
+                   style="background:#0071e3;color:#fff;padding:14px 32px;
+                          text-decoration:none;border-radius:12px;font-size:16px;
+                          font-weight:600;display:inline-block;">
+                    メールアドレスを確認する
+                </a>
+            </p>
+            <p style="color:#86868b;font-size:13px;">ボタンが動かない場合:<br>
+               <a href="{verify_link}" style="color:#0071e3;word-break:break-all;">{verify_link}</a></p>
+        """
+    else:
+        action_text = f"以下の認証コードをアプリの「認証コード入力」画面に入力してください。"
+        action_html = f"""
+            <p style="margin:24px 0;padding:20px;background:#f5f5f7;border-radius:12px;
+                      font-family:monospace;font-size:20px;text-align:center;
+                      letter-spacing:0.05em;font-weight:700;">{token}</p>
+        """
 
-以下のリンクをクリックしてメールアドレスを確認してください。
-{verify_link}
-
-このリンクは {VERIFICATION_TOKEN_EXPIRE_HOURS} 時間有効です。
-心当たりがない場合は、このメールを無視してください。
-"""
+    text_body = f"Newsletter AI\n\n{action_text}\n\n認証コード: {token}\n\n{VERIFICATION_TOKEN_EXPIRE_HOURS}時間有効です。"
 
     html_body = f"""
-<html>
-<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <h2 style="color: #4F46E5;">Newsletter AI - メールアドレスの確認</h2>
-    <p>Newsletter AI へのご登録ありがとうございます。</p>
-    <p>以下のボタンをクリックしてメールアドレスを確認してください。</p>
-    {"<p style='margin: 30px 0;'><a href='" + app_url + "?verify=" + token + "' style='background-color: #4F46E5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-size: 16px;'>メールアドレスを確認する</a></p>" if app_url else "<p style='margin: 20px 0; padding: 15px; background: #f3f4f6; border-radius: 6px; font-family: monospace; font-size: 18px; text-align: center;'>認証コード: <strong>" + token + "</strong></p>"}
-    <p style="color: #6b7280; font-size: 14px;">このリンクは {VERIFICATION_TOKEN_EXPIRE_HOURS} 時間有効です。</p>
-    <p style="color: #6b7280; font-size: 14px;">心当たりがない場合は、このメールを無視してください。</p>
-</body>
-</html>
-"""
+    <html><body style="font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;
+                       max-width:520px;margin:0 auto;padding:40px 20px;color:#1d1d1f;">
+        <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;margin-bottom:8px;">Newsletter AI</h1>
+        <p style="color:#86868b;margin-bottom:32px;">メールアドレスの確認</p>
+        <p>ご登録ありがとうございます。{action_text}</p>
+        {action_html}
+        <hr style="border:none;border-top:1px solid #d2d2d7;margin:32px 0;">
+        <p style="color:#86868b;font-size:12px;">
+            このリンクは{VERIFICATION_TOKEN_EXPIRE_HOURS}時間有効です。心当たりがない場合は無視してください。
+        </p>
+    </body></html>
+    """
 
     msg.attach(MIMEText(text_body, "plain", "utf-8"))
     msg.attach(MIMEText(html_body, "html", "utf-8"))
@@ -211,7 +442,7 @@ def send_verification_email(to_email: str, token: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Auth helpers
+# Auth
 # ---------------------------------------------------------------------------
 def authenticate(email: str, password: str) -> dict | None:
     email = email.strip().lower()
@@ -229,13 +460,11 @@ def require_login():
     if "user" not in st.session_state or st.session_state.user is None:
         show_auth_page()
         st.stop()
-
     last = st.session_state.get("last_activity", 0)
     if last and (time.time() - last) > SESSION_TIMEOUT_MINUTES * 60:
         st.session_state.clear()
         st.warning("セッションがタイムアウトしました。再度ログインしてください。")
         st.stop()
-
     st.session_state.last_activity = time.time()
 
 
@@ -244,13 +473,71 @@ def is_admin() -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Auth Pages
+# Verification (FIX #1: handle before init_db / login check)
+# ---------------------------------------------------------------------------
+def handle_email_verification() -> bool:
+    """URL の ?verify= パラメータを処理。認証成功なら True を返す"""
+    params = st.query_params
+    token = params.get("verify")
+    if not token:
+        return False
+
+    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE verification_token = ?", (token,)).fetchone()
+
+    if not user:
+        db.close()
+        st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
+        st.error("無効な認証リンクです。リンクの有効期限が切れているか、既に認証済みです。")
+        if st.button("ログイン画面へ"):
+            st.query_params.clear()
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+        return True
+
+    token_time = datetime.fromisoformat(user["token_created_at"])
+    now = datetime.now(timezone.utc)
+    if token_time.tzinfo is None:
+        token_time = token_time.replace(tzinfo=timezone.utc)
+
+    if now - token_time > timedelta(hours=VERIFICATION_TOKEN_EXPIRE_HOURS):
+        db.close()
+        st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
+        st.error("認証リンクの有効期限が切れています。管理者に再送を依頼してください。")
+        if st.button("ログイン画面へ"):
+            st.query_params.clear()
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+        return True
+
+    db.execute(
+        "UPDATE users SET is_verified = 1, verification_token = NULL WHERE id = ?",
+        (user["id"],),
+    )
+    db.commit()
+    db.close()
+
+    st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
+    st.markdown("<div class='auth-logo'>Newsletter AI</div>", unsafe_allow_html=True)
+    st.success(f"{user['email']} の認証が完了しました。")
+    st.info("ログイン画面からログインしてください。")
+    if st.button("ログイン画面へ", type="primary", use_container_width=True):
+        st.query_params.clear()
+        st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Auth Page
 # ---------------------------------------------------------------------------
 def _check_login_lockout() -> bool:
     locked_until = st.session_state.get("login_locked_until", 0)
     if locked_until and time.time() < locked_until:
         remaining = int(locked_until - time.time())
-        st.error(f"ログイン試行回数が上限に達しました。{remaining}秒後に再試行してください。")
+        st.error(f"ログイン試行上限に達しました。{remaining}秒後に再試行してください。")
         return True
     if locked_until and time.time() >= locked_until:
         st.session_state.login_attempts = 0
@@ -265,105 +552,61 @@ def _record_failed_login():
         st.session_state.login_locked_until = time.time() + LOGIN_LOCKOUT_SECONDS
 
 
-def verify_token_from_url():
-    """URLパラメータからの認証トークン処理"""
-    params = st.query_params
-    token = params.get("verify")
-    if not token:
-        return
-
-    db = get_db()
-    user = db.execute(
-        "SELECT * FROM users WHERE verification_token = ?", (token,)
-    ).fetchone()
-
-    if not user:
-        db.close()
-        st.error("無効な認証リンクです。")
-        return
-
-    token_time = datetime.fromisoformat(user["token_created_at"])
-    if datetime.now(timezone.utc) - token_time > timedelta(hours=VERIFICATION_TOKEN_EXPIRE_HOURS):
-        db.close()
-        st.error("認証リンクの有効期限が切れています。管理者に再送を依頼してください。")
-        return
-
-    db.execute(
-        "UPDATE users SET is_verified = 1, verification_token = NULL WHERE id = ?",
-        (user["id"],),
-    )
-    db.commit()
-    db.close()
-    st.success(f"メールアドレス ({user['email']}) の認証が完了しました！ログインしてください。")
-    st.query_params.clear()
-
-
 def show_auth_page():
-    """ログイン / 新規登録 / 認証コード入力の統合ページ"""
+    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+    st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
+    st.markdown("<div class='auth-logo'>Newsletter AI</div>", unsafe_allow_html=True)
+    st.markdown("<div class='auth-tagline'>AI-Powered Newsletter Creator</div>", unsafe_allow_html=True)
 
-    # URLパラメータからの自動認証
-    verify_token_from_url()
+    tab_login, tab_register, tab_verify = st.tabs(["ログイン", "新規登録", "認証コード"])
 
-    tab_login, tab_register, tab_verify = st.tabs(["ログイン", "新規登録", "認証コード入力"])
-
-    # --- ログイン ---
     with tab_login:
-        st.markdown("## Newsletter AI にログイン")
         if _check_login_lockout():
             return
-
         with st.form("login_form"):
-            email = st.text_input("メールアドレス", placeholder="yourname@androots.co.jp")
+            email = st.text_input("メールアドレス", placeholder=f"name@{get_allowed_domains()[0]}")
             password = st.text_input("パスワード", type="password")
-            submitted = st.form_submit_button("ログイン", use_container_width=True)
-
+            submitted = st.form_submit_button("ログイン", use_container_width=True, type="primary")
         if submitted:
             if not email or not password:
                 st.error("メールアドレスとパスワードを入力してください")
-                return
-            if not validate_email_domain(email):
-                st.error(f"{_domains_display()} のメールアドレスのみ使用できます")
-                return
-
-            result = authenticate(email, password)
-            if result and "error" not in result:
-                st.session_state.login_attempts = 0
-                st.session_state.login_locked_until = 0
-                st.session_state.user = result
-                st.session_state.last_activity = time.time()
-                st.rerun()
-            elif result and result.get("error") == "unverified":
-                st.warning("メールアドレスが未認証です。確認メールのリンクをクリックするか、「認証コード入力」タブで認証してください。")
+            elif not validate_email_domain(email):
+                st.error(f"{_domains_display()} のみ使用できます")
             else:
-                _record_failed_login()
-                remaining = MAX_LOGIN_ATTEMPTS - st.session_state.get("login_attempts", 0)
-                if remaining > 0:
-                    st.error(f"メールアドレスまたはパスワードが正しくありません（残り{remaining}回）")
+                result = authenticate(email, password)
+                if result and "error" not in result:
+                    st.session_state.login_attempts = 0
+                    st.session_state.login_locked_until = 0
+                    st.session_state.user = result
+                    st.session_state.last_activity = time.time()
+                    st.rerun()
+                elif result and result.get("error") == "unverified":
+                    st.warning("メール未認証です。確認メールのリンクをクリックするか「認証コード」タブへ。")
                 else:
-                    st.error(f"ログイン試行回数の上限に達しました。{LOGIN_LOCKOUT_SECONDS // 60}分間ロックされます。")
+                    _record_failed_login()
+                    remaining = MAX_LOGIN_ATTEMPTS - st.session_state.get("login_attempts", 0)
+                    if remaining > 0:
+                        st.error(f"認証失敗（残り{remaining}回）")
+                    else:
+                        st.error(f"{LOGIN_LOCKOUT_SECONDS // 60}分間ロックされます。")
 
-    # --- 新規登録 ---
     with tab_register:
-        st.markdown("## 新規ユーザー登録")
-        st.info(f"{_domains_display()} のメールアドレスが必要です")
-
+        st.caption(f"{_domains_display()} のメールアドレスが必要です")
         with st.form("register_form"):
-            reg_username = st.text_input("表示名", placeholder="例: 山田太郎")
-            reg_email = st.text_input("メールアドレス", placeholder=f"yourname@{get_allowed_domains()[0]}")
-            reg_password = st.text_input("パスワード（10文字以上・英数字必須）", type="password")
+            reg_username = st.text_input("表示名", placeholder="山田太郎")
+            reg_email = st.text_input("メールアドレス", placeholder=f"name@{get_allowed_domains()[0]}")
+            reg_password = st.text_input("パスワード", type="password", help="10文字以上・英数字必須")
             reg_password2 = st.text_input("パスワード（確認）", type="password")
-            reg_submitted = st.form_submit_button("登録してメール認証を送信", use_container_width=True)
-
+            reg_submitted = st.form_submit_button("登録する", use_container_width=True, type="primary")
         if reg_submitted:
-            # Validation
             if not all([reg_username, reg_email, reg_password, reg_password2]):
-                st.error("全ての項目を入力してください")
+                st.error("全項目を入力してください")
             elif not validate_email_domain(reg_email):
-                st.error(f"{_domains_display()} のメールアドレスのみ登録できます")
+                st.error(f"{_domains_display()} のみ登録可能です")
             elif len(reg_password) < 10:
-                st.error("パスワードは10文字以上にしてください")
+                st.error("パスワードは10文字以上")
             elif not any(c.isdigit() for c in reg_password) or not any(c.isalpha() for c in reg_password):
-                st.error("パスワードには英字と数字の両方を含めてください")
+                st.error("英字と数字を両方含めてください")
             elif reg_password != reg_password2:
                 st.error("パスワードが一致しません")
             else:
@@ -375,80 +618,94 @@ def show_auth_page():
                 ).fetchone()
                 if existing:
                     db.close()
-                    st.error("このメールアドレスまたは表示名は既に使用されています")
+                    st.error("このメールアドレスまたは表示名は使用済みです")
                 else:
                     token = uuid.uuid4().hex
                     hashed = hash_password(reg_password)
                     db.execute(
-                        """INSERT INTO users
-                           (username, email, hashed_password, role, is_verified, verification_token, token_created_at)
+                        """INSERT INTO users (username, email, hashed_password, role, is_verified, verification_token, token_created_at)
                            VALUES (?, ?, ?, 'user', 0, ?, ?)""",
-                        (reg_username, reg_email, hashed, token,
-                         datetime.now(timezone.utc).isoformat()),
+                        (reg_username, reg_email, hashed, token, datetime.now(timezone.utc).isoformat()),
                     )
                     db.commit()
                     db.close()
-
                     if send_verification_email(reg_email, token):
-                        st.success(
-                            f"確認メールを {reg_email} に送信しました。\n"
-                            f"メール内のリンクをクリックするか、認証コードを「認証コード入力」タブに入力してください。"
-                        )
+                        st.success(f"確認メールを {reg_email} に送信しました。")
                     else:
-                        st.warning("ユーザーは作成されましたが、確認メールの送信に失敗しました。管理者に連絡してください。")
+                        st.warning("ユーザー作成済みですが、メール送信に失敗しました。")
 
-    # --- 認証コード入力 ---
     with tab_verify:
-        st.markdown("## 認証コード入力")
-        st.info("確認メールに記載された認証コードを入力してください")
-
+        st.caption("確認メールの認証コードを入力")
         with st.form("verify_form"):
-            verify_token = st.text_input("認証コード", placeholder="メールに記載されたコードを入力")
-            verify_submitted = st.form_submit_button("認証する", use_container_width=True)
-
+            verify_token = st.text_input("認証コード")
+            verify_submitted = st.form_submit_button("認証する", use_container_width=True, type="primary")
         if verify_submitted and verify_token:
             verify_token = verify_token.strip()
             db = get_db()
-            user = db.execute(
-                "SELECT * FROM users WHERE verification_token = ?", (verify_token,)
-            ).fetchone()
-
+            user = db.execute("SELECT * FROM users WHERE verification_token = ?", (verify_token,)).fetchone()
             if not user:
                 db.close()
                 st.error("無効な認証コードです")
             else:
                 token_time = datetime.fromisoformat(user["token_created_at"])
+                if token_time.tzinfo is None:
+                    token_time = token_time.replace(tzinfo=timezone.utc)
                 if datetime.now(timezone.utc) - token_time > timedelta(hours=VERIFICATION_TOKEN_EXPIRE_HOURS):
                     db.close()
-                    st.error("認証コードの有効期限が切れています。管理者に再送を依頼してください。")
+                    st.error("認証コードの有効期限が切れています。")
                 else:
-                    db.execute(
-                        "UPDATE users SET is_verified = 1, verification_token = NULL WHERE id = ?",
-                        (user["id"],),
-                    )
+                    db.execute("UPDATE users SET is_verified = 1, verification_token = NULL WHERE id = ?", (user["id"],))
                     db.commit()
                     db.close()
-                    st.success(f"メールアドレス ({user['email']}) の認証が完了しました！「ログイン」タブからログインしてください。")
+                    st.success(f"{user['email']} の認証完了！「ログイン」タブへ。")
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
-# App Pages
+# Page: Generate
 # ---------------------------------------------------------------------------
 def page_generate():
-    st.header("メルマガ生成")
+    st.markdown("<div class='page-title'>メルマガ生成</div>", unsafe_allow_html=True)
+    st.markdown("<div class='page-subtitle'>AIがプロ品質のメルマガを作成します</div>", unsafe_allow_html=True)
 
     api_key = get_secret("ANTHROPIC_API_KEY")
     if not api_key:
-        st.error("ANTHROPIC_API_KEY が設定されていません。管理者に連絡してください。")
+        st.error("ANTHROPIC_API_KEY が未設定です。管理者に連絡してください。")
         return
 
-    db = get_db()
-    files = db.execute("SELECT * FROM uploaded_files ORDER BY category, original_name").fetchall()
-    db.close()
+    # Notion integration
+    notion_token = get_secret("NOTION_API_KEY")
+    notion_db_id = get_secret("NOTION_DATABASE_ID")
+    use_notion = bool(notion_token and notion_db_id)
+
+    # Reference source selection
+    source_options = ["なし"]
+    if use_notion:
+        source_options.append("Notion")
+    source_options.append("アップロードファイル")
+
+    ref_source = st.radio("参考データソース", source_options, horizontal=True)
 
     selected_files = []
-    if files:
-        with st.expander("参考ファイルを選択（任意）", expanded=False):
+    notion_pages = []
+
+    if ref_source == "Notion" and use_notion:
+        notion_pages = _fetch_notion_pages(notion_token, notion_db_id)
+        if notion_pages:
+            selected_ids = st.multiselect(
+                "Notion ページを選択",
+                options=[p["id"] for p in notion_pages],
+                format_func=lambda pid: next((p["title"] for p in notion_pages if p["id"] == pid), pid),
+            )
+        else:
+            selected_ids = []
+            st.info("Notion にページがありません")
+    elif ref_source == "アップロードファイル":
+        db = get_db()
+        files = db.execute("SELECT * FROM uploaded_files ORDER BY category, original_name").fetchall()
+        db.close()
+        if files:
             for cat_key, cat_label in ALLOWED_CATEGORIES.items():
                 cat_files = [f for f in files if f["category"] == cat_key]
                 if cat_files:
@@ -457,19 +714,19 @@ def page_generate():
                         if st.checkbox(f["original_name"], key=f"file_{f['id']}"):
                             selected_files.append(f"{f['category']}/{f['filename']}")
 
+    st.markdown("---")
+
     with st.form("generate_form"):
-        prompt = st.text_area(
-            "作成指示",
-            placeholder="例: 春の新商品キャンペーンのお知らせメルマガを作成してください",
-            height=120,
-        )
+        prompt = st.text_area("作成指示", placeholder="例: 春の新商品キャンペーンのお知らせメルマガを作成してください", height=100)
         col1, col2 = st.columns(2)
         with col1:
-            tone = st.selectbox("トーン", ["professional", "casual", "friendly", "formal"], index=0)
+            tone = st.selectbox("トーン", ["professional", "casual", "friendly", "formal"],
+                                format_func=lambda x: {"professional": "プロフェッショナル", "casual": "カジュアル",
+                                                       "friendly": "フレンドリー", "formal": "フォーマル"}[x])
         with col2:
             length = st.selectbox("長さ", ["short", "medium", "long"], index=1,
                                   format_func=lambda x: {"short": "短め", "medium": "標準", "long": "長め"}[x])
-        submitted = st.form_submit_button("生成する", use_container_width=True)
+        submitted = st.form_submit_button("生成する", use_container_width=True, type="primary")
 
     if submitted:
         if not prompt.strip():
@@ -481,10 +738,25 @@ def page_generate():
                 os.environ["ANTHROPIC_API_KEY"] = api_key
                 os.environ["CLAUDE_MODEL"] = get_secret("CLAUDE_MODEL", "claude-sonnet-4-6")
 
+                # Build reference data
+                extra_context = ""
+                if ref_source == "Notion" and use_notion and selected_ids:
+                    for pid in selected_ids:
+                        content = _fetch_notion_page_content(notion_token, pid)
+                        title = next((p["title"] for p in notion_pages if p["id"] == pid), "")
+                        extra_context += f"\n### {title}\n{content}\n"
+
+                # Load instructions
+                footer_text = get_instruction("footer")
+                custom_instructions = get_instruction("custom_instructions")
+
                 import asyncio
                 result = asyncio.run(generate_newsletter(
                     prompt=prompt, tone=tone, length=length,
                     selected_files=selected_files if selected_files else None,
+                    extra_context=extra_context if extra_context else None,
+                    footer_html=footer_text if footer_text else None,
+                    custom_instructions=custom_instructions if custom_instructions else None,
                 ))
                 st.session_state.generated_html = result["html"]
                 st.session_state.generated_prompt = prompt
@@ -493,44 +765,48 @@ def page_generate():
                 st.error(f"生成エラー: {e}")
                 return
 
+    # Result display (FIX #4: Preview + HTML code)
     if "generated_html" in st.session_state:
-        st.success(f"生成完了（トークン使用量: {st.session_state.tokens_used}）")
+        st.markdown(f"""<div class='stat-row'>
+            <div class='stat-box'><div class='stat-value'>{st.session_state.tokens_used:,}</div>
+            <div class='stat-label'>Tokens Used</div></div>
+        </div>""", unsafe_allow_html=True)
 
-        tab_preview, tab_code = st.tabs(["プレビュー", "HTMLコード"])
+        tab_preview, tab_code = st.tabs(["プレビュー", "HTML コード"])
         with tab_preview:
             st.components.v1.html(st.session_state.generated_html, height=600, scrolling=True)
         with tab_code:
             st.code(st.session_state.generated_html, language="html")
 
-        with st.form("save_form"):
-            title = st.text_input("タイトル", placeholder="メルマガのタイトルを入力")
-            save_btn = st.form_submit_button("保存する")
-
-        if save_btn and title.strip():
-            db = get_db()
-            db.execute(
-                "INSERT INTO newsletters (title, html_content, prompt_used, created_by) VALUES (?, ?, ?, ?)",
-                (title, st.session_state.generated_html, st.session_state.generated_prompt,
-                 st.session_state.user["username"]),
-            )
-            db.commit()
-            db.close()
-            st.success("保存しました！")
-
-        st.download_button(
-            "HTMLファイルをダウンロード",
-            st.session_state.generated_html,
-            file_name="newsletter.html",
-            mime="text/html",
-        )
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button("HTML ダウンロード", st.session_state.generated_html,
+                               file_name="newsletter.html", mime="text/html", use_container_width=True)
+        with col2:
+            with st.form("save_form"):
+                title = st.text_input("タイトル", placeholder="保存名を入力", label_visibility="collapsed")
+                save_btn = st.form_submit_button("保存する", use_container_width=True)
+            if save_btn and title.strip():
+                db = get_db()
+                db.execute(
+                    "INSERT INTO newsletters (title, html_content, prompt_used, created_by) VALUES (?, ?, ?, ?)",
+                    (title, st.session_state.generated_html, st.session_state.generated_prompt,
+                     st.session_state.user["username"]),
+                )
+                db.commit()
+                db.close()
+                st.success("保存しました")
 
 
+# ---------------------------------------------------------------------------
+# Page: History (FIX #4: add HTML code tab to history)
+# ---------------------------------------------------------------------------
 def page_history():
-    st.header("生成履歴")
+    st.markdown("<div class='page-title'>生成履歴</div>", unsafe_allow_html=True)
+    st.markdown("<div class='page-subtitle'>過去に生成したメルマガ一覧</div>", unsafe_allow_html=True)
+
     db = get_db()
-    newsletters = db.execute(
-        "SELECT * FROM newsletters ORDER BY created_at DESC LIMIT 50"
-    ).fetchall()
+    newsletters = db.execute("SELECT * FROM newsletters ORDER BY created_at DESC LIMIT 50").fetchall()
     db.close()
 
     if not newsletters:
@@ -538,17 +814,22 @@ def page_history():
         return
 
     for nl in newsletters:
-        with st.expander(f"{nl['title']}（{nl['created_at']} / {nl['created_by']}）"):
-            st.markdown(f"**プロンプト:** {nl['prompt_used']}")
-            st.components.v1.html(nl["html_content"], height=400, scrolling=True)
-            col1, col2 = st.columns(2)
+        with st.expander(f"{nl['title']}  —  {nl['created_at'][:16]}  ·  {nl['created_by']}"):
+            if nl["prompt_used"]:
+                st.caption(f"プロンプト: {nl['prompt_used']}")
+
+            tab_p, tab_c = st.tabs(["プレビュー", "HTML コード"])
+            with tab_p:
+                st.components.v1.html(nl["html_content"], height=400, scrolling=True)
+            with tab_c:
+                st.code(nl["html_content"], language="html")
+
+            col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
-                st.download_button(
-                    "HTMLダウンロード", nl["html_content"],
-                    file_name=f"{nl['title']}.html", mime="text/html",
-                    key=f"dl_{nl['id']}",
-                )
-            with col2:
+                st.download_button("HTML ダウンロード", nl["html_content"],
+                                   file_name=f"{nl['title']}.html", mime="text/html",
+                                   key=f"dl_{nl['id']}", use_container_width=True)
+            with col3:
                 if is_admin():
                     if st.button("削除", key=f"del_{nl['id']}"):
                         db = get_db()
@@ -558,23 +839,28 @@ def page_history():
                         st.rerun()
 
 
+# ---------------------------------------------------------------------------
+# Page: Files
+# ---------------------------------------------------------------------------
 def page_files():
-    st.header("ファイル管理")
+    st.markdown("<div class='page-title'>ファイル管理</div>", unsafe_allow_html=True)
+    st.markdown("<div class='page-subtitle'>メルマガ生成に使用する参考データ</div>", unsafe_allow_html=True)
 
     if is_admin():
-        st.subheader("ファイルアップロード")
         with st.form("upload_form", clear_on_submit=True):
-            category = st.selectbox(
-                "カテゴリ", list(ALLOWED_CATEGORIES.keys()),
-                format_func=lambda x: ALLOWED_CATEGORIES[x],
-            )
-            uploaded = st.file_uploader("ファイルを選択", type=["txt", "csv", "pdf", "text", "md"])
-            upload_btn = st.form_submit_button("アップロード")
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                category = st.selectbox("カテゴリ", list(ALLOWED_CATEGORIES.keys()),
+                                        format_func=lambda x: ALLOWED_CATEGORIES[x])
+            with col2:
+                uploaded = st.file_uploader("ファイル", type=["txt", "csv", "pdf", "text", "md"],
+                                            label_visibility="collapsed")
+            upload_btn = st.form_submit_button("アップロード", use_container_width=True)
 
         if upload_btn and uploaded:
             content = uploaded.read()
             if len(content) > MAX_UPLOAD_SIZE:
-                st.error("ファイルサイズが大きすぎます（最大 10MB）")
+                st.error("ファイルサイズが大きすぎます（最大10MB）")
             else:
                 safe_name = f"{uuid.uuid4().hex[:8]}_{uploaded.name}"
                 cat_dir = os.path.join(UPLOAD_DIR, category)
@@ -590,7 +876,6 @@ def page_files():
                 db.close()
                 st.success(f"「{uploaded.name}」をアップロードしました")
 
-    st.subheader("アップロード済みファイル")
     db = get_db()
     files = db.execute("SELECT * FROM uploaded_files ORDER BY uploaded_at DESC").fetchall()
     db.close()
@@ -602,11 +887,11 @@ def page_files():
     for cat_key, cat_label in ALLOWED_CATEGORIES.items():
         cat_files = [f for f in files if f["category"] == cat_key]
         if cat_files:
-            st.markdown(f"### {cat_label}")
+            st.markdown(f"#### {cat_label}")
             for f in cat_files:
-                col1, col2 = st.columns([4, 1])
+                col1, col2 = st.columns([5, 1])
                 with col1:
-                    st.text(f"{f['original_name']}（{f['uploaded_at']} / {f['uploaded_by']}）")
+                    st.caption(f"{f['original_name']}  ·  {f['uploaded_at'][:16]}  ·  {f['uploaded_by']}")
                 with col2:
                     if is_admin():
                         if st.button("削除", key=f"fdel_{f['id']}"):
@@ -620,98 +905,134 @@ def page_files():
                             st.rerun()
 
 
+# ---------------------------------------------------------------------------
+# Page: Instructions (FIX #5)
+# ---------------------------------------------------------------------------
+def page_instructions():
+    st.markdown("<div class='page-title'>指示書設定</div>", unsafe_allow_html=True)
+    st.markdown("<div class='page-subtitle'>メルマガ生成時に Claude に自動適用される指示</div>", unsafe_allow_html=True)
+
+    if not is_admin():
+        st.warning("管理者権限が必要です")
+        return
+
+    st.markdown("#### カスタム指示")
+    st.caption("トーン、使用する言葉、避ける表現、ブランドガイドライン等を記述してください。全ての生成に自動適用されます。")
+    current_instructions = get_instruction("custom_instructions")
+    new_instructions = st.text_area(
+        "指示内容", value=current_instructions, height=200, label_visibility="collapsed",
+        placeholder="例:\n- 「お客様」ではなく「皆さま」を使用\n- 絵文字は控えめに\n- 必ず会社名「Androots」を冒頭に入れる\n- CTAボタンの文言は「詳しくはこちら」で統一",
+    )
+
+    st.markdown("---")
+
+    st.markdown("#### フッター HTML")
+    st.caption("全てのメルマガの末尾に自動挿入される固定フッターです。HTML で記述できます。")
+    current_footer = get_instruction("footer")
+    new_footer = st.text_area(
+        "フッター", value=current_footer, height=200, label_visibility="collapsed",
+        placeholder='例:\n<div style="text-align:center;padding:20px;color:#86868b;font-size:12px;">\n  <p>株式会社Androots</p>\n  <p>〒000-0000 東京都...</p>\n  <p><a href="#">配信停止</a></p>\n</div>',
+    )
+
+    if new_footer != current_footer:
+        with st.expander("フッター プレビュー"):
+            if new_footer.strip():
+                st.components.v1.html(new_footer, height=150, scrolling=True)
+            else:
+                st.caption("（空）")
+
+    if st.button("保存する", type="primary", use_container_width=True):
+        username = st.session_state.user["username"]
+        set_instruction("custom_instructions", new_instructions, username)
+        set_instruction("footer", new_footer, username)
+        st.success("指示書を保存しました")
+
+
+# ---------------------------------------------------------------------------
+# Page: Users
+# ---------------------------------------------------------------------------
 def page_users():
     if not is_admin():
         st.warning("管理者権限が必要です")
         return
 
-    st.header("ユーザー管理")
+    st.markdown("<div class='page-title'>ユーザー管理</div>", unsafe_allow_html=True)
+    st.markdown("<div class='page-subtitle'>チームメンバーの招待と管理</div>", unsafe_allow_html=True)
 
-    # --- 新規ユーザー追加（管理者による招待） ---
     with st.form("add_user_form", clear_on_submit=True):
-        st.subheader("新規ユーザー招待")
-        col1, col2, col3 = st.columns(3)
+        st.markdown("#### 新規ユーザー招待")
+        col1, col2 = st.columns(2)
         with col1:
             new_username = st.text_input("表示名")
-        with col2:
-            new_email = st.text_input("メールアドレス", placeholder=f"{_domains_display()}")
-        with col3:
             new_role = st.selectbox("ロール", ["user", "admin"])
-        new_password = st.text_input("初期パスワード（10文字以上・英数字必須）", type="password")
-        add_btn = st.form_submit_button("追加して確認メールを送信")
+        with col2:
+            new_email = st.text_input("メールアドレス", placeholder=f"name@{get_allowed_domains()[0]}")
+            new_password = st.text_input("初期パスワード", type="password", help="10文字以上・英数字必須")
+        add_btn = st.form_submit_button("追加して確認メールを送信", use_container_width=True, type="primary")
 
     if add_btn:
         if not all([new_username, new_email, new_password]):
-            st.error("全ての項目を入力してください")
+            st.error("全項目を入力してください")
         elif not validate_email_domain(new_email):
-            st.error(f"{_domains_display()} のメールアドレスのみ登録できます")
+            st.error(f"{_domains_display()} のみ登録可能です")
         elif len(new_password) < 10:
-            st.error("パスワードは10文字以上にしてください")
+            st.error("パスワードは10文字以上")
         elif not any(c.isdigit() for c in new_password) or not any(c.isalpha() for c in new_password):
-            st.error("パスワードには英字と数字の両方を含めてください")
+            st.error("英字と数字を両方含めてください")
         else:
             new_email = new_email.strip().lower()
             db = get_db()
-            existing = db.execute(
-                "SELECT id FROM users WHERE email = ? OR username = ?",
-                (new_email, new_username),
-            ).fetchone()
+            existing = db.execute("SELECT id FROM users WHERE email = ? OR username = ?", (new_email, new_username)).fetchone()
             if existing:
-                st.error("このメールアドレスまたは表示名は既に使用されています")
+                st.error("このメールアドレスまたは表示名は使用済みです")
             else:
                 token = uuid.uuid4().hex
                 hashed = hash_password(new_password)
                 db.execute(
-                    """INSERT INTO users
-                       (username, email, hashed_password, role, is_verified, verification_token, token_created_at)
+                    """INSERT INTO users (username, email, hashed_password, role, is_verified, verification_token, token_created_at)
                        VALUES (?, ?, ?, ?, 0, ?, ?)""",
-                    (new_username, new_email, hashed, new_role, token,
-                     datetime.now(timezone.utc).isoformat()),
+                    (new_username, new_email, hashed, new_role, token, datetime.now(timezone.utc).isoformat()),
                 )
                 db.commit()
                 db.close()
-
                 if send_verification_email(new_email, token):
                     st.success(f"確認メールを {new_email} に送信しました")
                 else:
-                    st.warning("ユーザーは作成されましたが、確認メールの送信に失敗しました")
+                    st.warning("ユーザー作成済みですが、メール送信に失敗しました")
 
-    # --- ユーザー一覧 ---
-    st.subheader("ユーザー一覧")
+    st.markdown("---")
+    st.markdown("#### メンバー一覧")
+
     db = get_db()
     users = db.execute("SELECT id, username, email, role, is_verified, created_at FROM users ORDER BY id").fetchall()
     db.close()
 
     for u in users:
-        verified_icon = "OK" if u["is_verified"] else "未認証"
-        col1, col2, col3, col4, col5 = st.columns([2, 3, 1, 1, 1])
+        col1, col2, col3, col4 = st.columns([3, 3, 1, 2])
         with col1:
-            st.text(u["username"])
+            st.markdown(f"**{u['username']}**")
         with col2:
-            st.text(u["email"] or "-")
+            st.caption(u["email"] or "-")
         with col3:
-            st.text(u["role"])
+            if u["is_verified"]:
+                st.markdown("<span class='badge-ok'>認証済</span>", unsafe_allow_html=True)
+            else:
+                st.markdown("<span class='badge-pending'>未認証</span>", unsafe_allow_html=True)
         with col4:
-            st.text(verified_icon)
-        with col5:
             if u["username"] != "admin":
-                btn_col1, btn_col2 = st.columns(2)
-                with btn_col1:
+                bc1, bc2 = st.columns(2)
+                with bc1:
                     if not u["is_verified"]:
                         if st.button("再送", key=f"resend_{u['id']}"):
                             token = uuid.uuid4().hex
                             db = get_db()
-                            db.execute(
-                                "UPDATE users SET verification_token = ?, token_created_at = ? WHERE id = ?",
-                                (token, datetime.now(timezone.utc).isoformat(), u["id"]),
-                            )
+                            db.execute("UPDATE users SET verification_token = ?, token_created_at = ? WHERE id = ?",
+                                       (token, datetime.now(timezone.utc).isoformat(), u["id"]))
                             db.commit()
                             db.close()
-                            if send_verification_email(u["email"], token):
-                                st.success(f"確認メールを再送しました")
-                            else:
-                                st.error("再送に失敗しました")
-                with btn_col2:
+                            send_verification_email(u["email"], token)
+                            st.rerun()
+                with bc2:
                     if st.button("削除", key=f"udel_{u['id']}"):
                         db = get_db()
                         db.execute("DELETE FROM users WHERE id = ?", (u["id"],))
@@ -721,31 +1042,86 @@ def page_users():
 
 
 # ---------------------------------------------------------------------------
+# Notion integration (FIX #3)
+# ---------------------------------------------------------------------------
+def _fetch_notion_pages(token: str, database_id: str) -> list[dict]:
+    """Notion DB からページ一覧を取得"""
+    try:
+        import requests
+        resp = requests.post(
+            f"https://api.notion.com/v1/databases/{database_id}/query",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Notion-Version": "2022-06-28",
+                "Content-Type": "application/json",
+            },
+            json={"page_size": 50},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        pages = []
+        for item in resp.json().get("results", []):
+            title = ""
+            for prop in item.get("properties", {}).values():
+                if prop.get("type") == "title":
+                    title = "".join(t.get("plain_text", "") for t in prop.get("title", []))
+                    break
+            pages.append({"id": item["id"], "title": title or "Untitled"})
+        return pages
+    except Exception as e:
+        st.warning(f"Notion 接続エラー: {e}")
+        return []
+
+
+def _fetch_notion_page_content(token: str, page_id: str) -> str:
+    """Notion ページのブロック内容をテキストで取得"""
+    try:
+        import requests
+        resp = requests.get(
+            f"https://api.notion.com/v1/blocks/{page_id}/children?page_size=100",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Notion-Version": "2022-06-28",
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        texts = []
+        for block in resp.json().get("results", []):
+            block_type = block.get("type", "")
+            block_data = block.get(block_type, {})
+            if "rich_text" in block_data:
+                line = "".join(t.get("plain_text", "") for t in block_data["rich_text"])
+                if line.strip():
+                    texts.append(line)
+        return "\n".join(texts)
+    except Exception as e:
+        return f"[Notion読み取りエラー: {e}]"
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    st.set_page_config(
-        page_title="Newsletter AI",
-        page_icon="📧",
-        layout="wide",
-    )
+    st.set_page_config(page_title="Newsletter AI", page_icon="📧", layout="wide")
+
+    # FIX #1: Handle verification URL BEFORE anything else
+    if handle_email_verification():
+        st.stop()
 
     init_db()
     require_login()
 
+    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
     with st.sidebar:
         st.markdown("### Newsletter AI")
-        st.markdown(
-            f"ログイン中: **{st.session_state.user['username']}**"
-            f" ({st.session_state.user['email']})"
-        )
+        st.caption(f"{st.session_state.user['username']}  ·  {st.session_state.user['email']}")
 
-        page = st.radio(
-            "メニュー",
-            ["メルマガ生成", "生成履歴", "ファイル管理"]
-            + (["ユーザー管理"] if is_admin() else []),
-            label_visibility="collapsed",
-        )
+        pages = ["メルマガ生成", "生成履歴", "ファイル管理"]
+        if is_admin():
+            pages += ["指示書設定", "ユーザー管理"]
+        page = st.radio("メニュー", pages, label_visibility="collapsed")
 
         st.divider()
         if st.button("ログアウト", use_container_width=True):
@@ -758,6 +1134,8 @@ def main():
         page_history()
     elif page == "ファイル管理":
         page_files()
+    elif page == "指示書設定":
+        page_instructions()
     elif page == "ユーザー管理":
         page_users()
 

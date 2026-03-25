@@ -52,31 +52,25 @@ def read_file_content(filepath: str) -> str:
 
 def gather_reference_data() -> str:
     sections = []
-
     categories = {
         "products": "商品情報",
         "instructions": "指示書",
         "templates": "テンプレート・参考資料",
     }
-
     for folder, label in categories.items():
         folder_path = os.path.join(UPLOAD_DIR, folder)
         if not os.path.exists(folder_path):
             continue
-
         files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
         if not files:
             continue
-
         section_content = f"\n## {label}\n"
         for filename in files:
             filepath = os.path.join(folder_path, filename)
             content = read_file_content(filepath)
             if content.strip():
                 section_content += f"\n### {filename}\n{content}\n"
-
         sections.append(section_content)
-
     return "\n".join(sections) if sections else ""
 
 
@@ -85,16 +79,20 @@ async def generate_newsletter(
     tone: str = "professional",
     length: str = "medium",
     selected_files: list[str] | None = None,
+    extra_context: str | None = None,
+    footer_html: str | None = None,
+    custom_instructions: str | None = None,
 ) -> dict:
     api_key = os.environ.get("ANTHROPIC_API_KEY") or _API_KEY
     model = os.environ.get("CLAUDE_MODEL") or _MODEL
     if not (api_key or "").strip():
-        raise ValueError(
-            "ANTHROPIC_API_KEY が未設定です。.env にAPIキーを設定してから再起動してください。"
-        )
+        raise ValueError("ANTHROPIC_API_KEY が未設定です。")
 
+    # Build reference data
     reference_data = ""
-    if selected_files:
+    if extra_context:
+        reference_data = extra_context
+    elif selected_files:
         for filepath in selected_files:
             full_path = os.path.join(UPLOAD_DIR, filepath)
             if os.path.exists(full_path):
@@ -128,6 +126,12 @@ async def generate_newsletter(
 - 説明文やマークダウンは不要です
 - ```html などのコードブロック記法は使わないでください"""
 
+    if custom_instructions:
+        system_prompt += f"\n\n【追加指示（必ず従ってください）】\n{custom_instructions}"
+
+    if footer_html:
+        system_prompt += f"\n\n【フッター】\n以下のHTMLを</body>タグの直前にそのまま挿入してください。内容を変更しないでください。\n{footer_html}"
+
     user_message = prompt
     if reference_data:
         user_message = f"""以下の参考データを活用してメルマガを作成してください。
@@ -148,7 +152,6 @@ async def generate_newsletter(
 
     html_content = response.content[0].text
 
-    # Clean up if wrapped in code blocks
     if html_content.startswith("```"):
         lines = html_content.split("\n")
         if lines[0].startswith("```"):
