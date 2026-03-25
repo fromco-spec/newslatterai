@@ -691,6 +691,17 @@ def page_generate():
     notion_pages = []
 
     if ref_source == "Notion" and use_notion:
+        # 接続先データベース情報を表示
+        db_info = _fetch_notion_db_info(notion_token, notion_db_id)
+        if db_info:
+            st.markdown(f"""<div class='app-card' style='padding:0.75rem 1rem;'>
+                <span style='color:var(--text-secondary);font-size:0.8rem;'>接続中のデータベース:</span>
+                <strong>{db_info['title']}</strong>
+                {f"&nbsp;&nbsp;<a href='{db_info['url']}' target='_blank' style='font-size:0.8rem;color:var(--accent);'>Notion で開く</a>" if db_info['url'] else ""}
+            </div>""", unsafe_allow_html=True)
+        else:
+            st.warning("Notion データベースに接続できませんでした。ID とインテグレーションの共有設定を確認してください。")
+
         notion_pages = _fetch_notion_pages(notion_token, notion_db_id)
         if notion_pages:
             selected_ids = st.multiselect(
@@ -700,7 +711,7 @@ def page_generate():
             )
         else:
             selected_ids = []
-            st.info("Notion にページがありません")
+            st.info("データベース内にページがありません")
     elif ref_source == "アップロードファイル":
         db = get_db()
         files = db.execute("SELECT * FROM uploaded_files ORDER BY category, original_name").fetchall()
@@ -1044,6 +1055,30 @@ def page_users():
 # ---------------------------------------------------------------------------
 # Notion integration (FIX #3)
 # ---------------------------------------------------------------------------
+def _fetch_notion_db_info(token: str, database_id: str) -> dict | None:
+    """Notion データベースのタイトル・URL を取得"""
+    try:
+        import requests
+        resp = requests.get(
+            f"https://api.notion.com/v1/databases/{database_id}",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Notion-Version": "2022-06-28",
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        title = "".join(t.get("plain_text", "") for t in data.get("title", []))
+        return {
+            "title": title or "Untitled",
+            "url": data.get("url", ""),
+            "id": database_id,
+        }
+    except Exception:
+        return None
+
+
 def _fetch_notion_pages(token: str, database_id: str) -> list[dict]:
     """Notion DB からページ一覧を取得"""
     try:
