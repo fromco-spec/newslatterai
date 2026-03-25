@@ -674,10 +674,21 @@ def page_generate():
         st.error("ANTHROPIC_API_KEY が未設定です。管理者に連絡してください。")
         return
 
-    # Notion integration
+    # Notion integration - multiple databases
     notion_token = get_secret("NOTION_API_KEY")
-    notion_db_id = get_secret("NOTION_DATABASE_ID")
-    use_notion = bool(notion_token and notion_db_id)
+    NOTION_DATABASES = {
+        "NOTION_DB_SHOHIN": "商品情報",
+        "NOTION_DB_GAIBU": "外部情報",
+        "NOTION_DB_MIRYOKU": "魅力情報",
+        "NOTION_DB_QA": "Q&A",
+        "NOTION_DATABASE_ID": "Notion",  # fallback for single DB config
+    }
+    notion_dbs = {}
+    for key, label in NOTION_DATABASES.items():
+        db_id = get_secret(key)
+        if db_id:
+            notion_dbs[key] = {"id": db_id, "label": label}
+    use_notion = bool(notion_token and notion_dbs)
 
     # Reference source selection
     source_options = ["なし"]
@@ -688,30 +699,45 @@ def page_generate():
     ref_source = st.radio("参考データソース", source_options, horizontal=True)
 
     selected_files = []
-    notion_pages = []
+    all_notion_pages = []
+    selected_ids = []
 
     if ref_source == "Notion" and use_notion:
-        # 接続先データベース情報を表示
-        db_info = _fetch_notion_db_info(notion_token, notion_db_id)
-        if db_info:
-            st.markdown(f"""<div class='app-card' style='padding:0.75rem 1rem;'>
-                <span style='color:var(--text-secondary);font-size:0.8rem;'>接続中のデータベース:</span>
-                <strong>{db_info['title']}</strong>
-                {f"&nbsp;&nbsp;<a href='{db_info['url']}' target='_blank' style='font-size:0.8rem;color:var(--accent);'>Notion で開く</a>" if db_info['url'] else ""}
-            </div>""", unsafe_allow_html=True)
-        else:
-            st.warning("Notion データベースに接続できませんでした。ID とインテグレーションの共有設定を確認してください。")
+        # Show connected databases and their pages
+        for db_key, db_meta in notion_dbs.items():
+            db_info = _fetch_notion_db_info(notion_token, db_meta["id"])
+            db_label = db_info["title"] if db_info else db_meta["label"]
+            notion_url = db_info.get("url", "") if db_info else ""
 
-        notion_pages = _fetch_notion_pages(notion_token, notion_db_id)
-        if notion_pages:
+            if db_info:
+                st.markdown(f"""<div class='app-card' style='padding:0.75rem 1rem;margin-bottom:0.5rem;'>
+                    <span class='badge-ok'>{db_meta['label']}</span>&nbsp;&nbsp;
+                    <strong>{db_label}</strong>
+                    {f"&nbsp;&nbsp;<a href='{notion_url}' target='_blank' style='font-size:0.8rem;color:var(--accent);'>開く</a>" if notion_url else ""}
+                </div>""", unsafe_allow_html=True)
+            else:
+                st.markdown(f"""<div class='app-card' style='padding:0.75rem 1rem;margin-bottom:0.5rem;'>
+                    <span class='badge-pending'>{db_meta['label']}</span>&nbsp;&nbsp;
+                    接続エラー（ID: {db_meta['id'][:8]}...）
+                </div>""", unsafe_allow_html=True)
+
+        # Fetch pages from all connected databases
+        for db_key, db_meta in notion_dbs.items():
+            pages = _fetch_notion_pages(notion_token, db_meta["id"])
+            for p in pages:
+                p["db_label"] = db_meta["label"]
+                all_notion_pages.append(p)
+
+        if all_notion_pages:
             selected_ids = st.multiselect(
-                "Notion ページを選択",
-                options=[p["id"] for p in notion_pages],
-                format_func=lambda pid: next((p["title"] for p in notion_pages if p["id"] == pid), pid),
+                "参照するページを選択",
+                options=[p["id"] for p in all_notion_pages],
+                format_func=lambda pid: next(
+                    (f"[{p['db_label']}] {p['title']}" for p in all_notion_pages if p["id"] == pid), pid
+                ),
             )
         else:
-            selected_ids = []
-            st.info("データベース内にページがありません")
+            st.info("接続済みデータベースにページがありません。Notion でインテグレーションの共有設定を確認してください。")
     elif ref_source == "アップロードファイル":
         db = get_db()
         files = db.execute("SELECT * FROM uploaded_files ORDER BY category, original_name").fetchall()
@@ -754,7 +780,8 @@ def page_generate():
                 if ref_source == "Notion" and use_notion and selected_ids:
                     for pid in selected_ids:
                         content = _fetch_notion_page_content(notion_token, pid)
-                        title = next((p["title"] for p in notion_pages if p["id"] == pid), "")
+                        page_info = next((p for p in all_notion_pages if p["id"] == pid), {})
+                        title = f"[{page_info.get('db_label', '')}] {page_info.get('title', '')}"
                         extra_context += f"\n### {title}\n{content}\n"
 
                 # Load instructions
