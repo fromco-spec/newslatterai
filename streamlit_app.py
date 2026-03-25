@@ -634,23 +634,20 @@ def send_verification_email(to_email: str, token: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Auth
+# Auth (admin-only login)
 # ---------------------------------------------------------------------------
-def authenticate(email: str, password: str) -> dict | None:
-    email = email.strip().lower()
+def authenticate_admin(password: str) -> dict | None:
     db = get_db()
-    user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+    admin = db.execute("SELECT * FROM users WHERE role = 'admin' LIMIT 1").fetchone()
     db.close()
-    if user and verify_password(password, user["hashed_password"]):
-        if not user["is_verified"]:
-            return {"error": "unverified"}
-        return {"username": user["username"], "email": user["email"], "role": user["role"]}
+    if admin and verify_password(password, admin["hashed_password"]):
+        return {"username": admin["username"], "email": admin.get("email", ""), "role": "admin"}
     return None
 
 
 def require_login():
     if "user" not in st.session_state or st.session_state.user is None:
-        show_auth_page()
+        show_login_page()
         st.stop()
     last = st.session_state.get("last_activity", 0)
     if last and (time.time() - last) > SESSION_TIMEOUT_MINUTES * 60:
@@ -661,197 +658,56 @@ def require_login():
 
 
 def is_admin() -> bool:
-    return st.session_state.get("user", {}).get("role") == "admin"
-
-
-# ---------------------------------------------------------------------------
-# Verification (FIX #1: handle before init_db / login check)
-# ---------------------------------------------------------------------------
-def handle_email_verification() -> bool:
-    """URL の ?verify= パラメータを処理。認証成功なら True を返す"""
-    params = st.query_params
-    token = params.get("verify")
-    if not token:
-        return False
-
-    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
-
-    db = get_db()
-    user = db.execute("SELECT * FROM users WHERE verification_token = ?", (token,)).fetchone()
-
-    if not user:
-        db.close()
-        st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
-        st.error("無効な認証リンクです。リンクの有効期限が切れているか、既に認証済みです。")
-        if st.button("ログイン画面へ"):
-            st.query_params.clear()
-            st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-        return True
-
-    token_time = datetime.fromisoformat(user["token_created_at"])
-    now = datetime.now(timezone.utc)
-    if token_time.tzinfo is None:
-        token_time = token_time.replace(tzinfo=timezone.utc)
-
-    if now - token_time > timedelta(hours=VERIFICATION_TOKEN_EXPIRE_HOURS):
-        db.close()
-        st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
-        st.error("認証リンクの有効期限が切れています。管理者に再送を依頼してください。")
-        if st.button("ログイン画面へ"):
-            st.query_params.clear()
-            st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-        return True
-
-    db.execute(
-        "UPDATE users SET is_verified = 1, verification_token = NULL WHERE id = ?",
-        (user["id"],),
-    )
-    db.commit()
-    db.close()
-
-    st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
-    st.markdown("<div class='auth-logo'>Newsletter AI</div>", unsafe_allow_html=True)
-    st.success(f"{user['email']} の認証が完了しました。")
-    st.info("ログイン画面からログインしてください。")
-    if st.button("ログイン画面へ", type="primary", use_container_width=True):
-        st.query_params.clear()
-        st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
     return True
 
 
 # ---------------------------------------------------------------------------
-# Auth Page
+# Login Page (admin password only)
 # ---------------------------------------------------------------------------
-def _check_login_lockout() -> bool:
-    locked_until = st.session_state.get("login_locked_until", 0)
-    if locked_until and time.time() < locked_until:
-        remaining = int(locked_until - time.time())
-        st.error(f"ログイン試行上限に達しました。{remaining}秒後に再試行してください。")
-        return True
-    if locked_until and time.time() >= locked_until:
-        st.session_state.login_attempts = 0
-        st.session_state.login_locked_until = 0
-    return False
-
-
-def _record_failed_login():
-    attempts = st.session_state.get("login_attempts", 0) + 1
-    st.session_state.login_attempts = attempts
-    if attempts >= MAX_LOGIN_ATTEMPTS:
-        st.session_state.login_locked_until = time.time() + LOGIN_LOCKOUT_SECONDS
-
-
-def show_auth_page():
+def show_login_page():
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
     st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
     st.markdown("<div class='auth-logo'>Newsletter AI</div>", unsafe_allow_html=True)
     st.markdown("<div class='auth-tagline'>AI-Powered Newsletter Creator</div>", unsafe_allow_html=True)
 
-    tab_login, tab_register, tab_verify = st.tabs(["ログイン", "新規登録", "認証コード"])
+    # Lockout check
+    locked_until = st.session_state.get("login_locked_until", 0)
+    if locked_until and time.time() < locked_until:
+        remaining = int(locked_until - time.time())
+        st.error(f"ログイン試行上限に達しました。{remaining}秒後に再試行してください。")
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+    if locked_until and time.time() >= locked_until:
+        st.session_state.login_attempts = 0
+        st.session_state.login_locked_until = 0
 
-    with tab_login:
-        if _check_login_lockout():
-            return
-        with st.form("login_form"):
-            email = st.text_input("メールアドレス", placeholder=f"name@{get_allowed_domains()[0]}")
-            password = st.text_input("パスワード", type="password")
-            submitted = st.form_submit_button("ログイン", use_container_width=True, type="primary")
-        if submitted:
-            if not email or not password:
-                st.error("メールアドレスとパスワードを入力してください")
-            elif not validate_email_domain(email):
-                st.error(f"{_domains_display()} のみ使用できます")
-            else:
-                result = authenticate(email, password)
-                if result and "error" not in result:
-                    st.session_state.login_attempts = 0
-                    st.session_state.login_locked_until = 0
-                    st.session_state.user = result
-                    st.session_state.last_activity = time.time()
-                    st.rerun()
-                elif result and result.get("error") == "unverified":
-                    st.warning("メール未認証です。確認メールのリンクをクリックするか「認証コード」タブへ。")
-                else:
-                    _record_failed_login()
-                    remaining = MAX_LOGIN_ATTEMPTS - st.session_state.get("login_attempts", 0)
-                    if remaining > 0:
-                        st.error(f"認証失敗（残り{remaining}回）")
-                    else:
-                        st.error(f"{LOGIN_LOCKOUT_SECONDS // 60}分間ロックされます。")
+    with st.form("login_form"):
+        password = st.text_input("パスワード", type="password", placeholder="管理者パスワードを入力")
+        submitted = st.form_submit_button("ログイン", use_container_width=True, type="primary")
 
-    with tab_register:
-        st.caption(f"{_domains_display()} のメールアドレスが必要です")
-        with st.form("register_form"):
-            reg_username = st.text_input("表示名", placeholder="山田太郎")
-            reg_email = st.text_input("メールアドレス", placeholder=f"name@{get_allowed_domains()[0]}")
-            reg_password = st.text_input("パスワード", type="password", help="10文字以上・英数字必須")
-            reg_password2 = st.text_input("パスワード（確認）", type="password")
-            reg_submitted = st.form_submit_button("登録する", use_container_width=True, type="primary")
-        if reg_submitted:
-            if not all([reg_username, reg_email, reg_password, reg_password2]):
-                st.error("全項目を入力してください")
-            elif not validate_email_domain(reg_email):
-                st.error(f"{_domains_display()} のみ登録可能です")
-            elif len(reg_password) < 10:
-                st.error("パスワードは10文字以上")
-            elif not any(c.isdigit() for c in reg_password) or not any(c.isalpha() for c in reg_password):
-                st.error("英字と数字を両方含めてください")
-            elif reg_password != reg_password2:
-                st.error("パスワードが一致しません")
+    if submitted:
+        if not password:
+            st.error("パスワードを入力してください")
+        else:
+            result = authenticate_admin(password)
+            if result:
+                st.session_state.login_attempts = 0
+                st.session_state.login_locked_until = 0
+                st.session_state.user = result
+                st.session_state.last_activity = time.time()
+                st.rerun()
             else:
-                reg_email = reg_email.strip().lower()
-                db = get_db()
-                existing = db.execute(
-                    "SELECT id FROM users WHERE email = ? OR username = ?",
-                    (reg_email, reg_username),
-                ).fetchone()
-                if existing:
-                    db.close()
-                    st.error("このメールアドレスまたは表示名は使用済みです")
+                attempts = st.session_state.get("login_attempts", 0) + 1
+                st.session_state.login_attempts = attempts
+                if attempts >= MAX_LOGIN_ATTEMPTS:
+                    st.session_state.login_locked_until = time.time() + LOGIN_LOCKOUT_SECONDS
+                    st.error(f"{LOGIN_LOCKOUT_SECONDS // 60}分間ロックされます。")
                 else:
-                    token = uuid.uuid4().hex
-                    hashed = hash_password(reg_password)
-                    db.execute(
-                        """INSERT INTO users (username, email, hashed_password, role, is_verified, verification_token, token_created_at)
-                           VALUES (?, ?, ?, 'user', 0, ?, ?)""",
-                        (reg_username, reg_email, hashed, token, datetime.now(timezone.utc).isoformat()),
-                    )
-                    db.commit()
-                    db.close()
-                    if send_verification_email(reg_email, token):
-                        st.success(f"確認メールを {reg_email} に送信しました。")
-                    else:
-                        st.warning("ユーザー作成済みですが、メール送信に失敗しました。")
-
-    with tab_verify:
-        st.caption("確認メールの認証コードを入力")
-        with st.form("verify_form"):
-            verify_token = st.text_input("認証コード")
-            verify_submitted = st.form_submit_button("認証する", use_container_width=True, type="primary")
-        if verify_submitted and verify_token:
-            verify_token = verify_token.strip()
-            db = get_db()
-            user = db.execute("SELECT * FROM users WHERE verification_token = ?", (verify_token,)).fetchone()
-            if not user:
-                db.close()
-                st.error("無効な認証コードです")
-            else:
-                token_time = datetime.fromisoformat(user["token_created_at"])
-                if token_time.tzinfo is None:
-                    token_time = token_time.replace(tzinfo=timezone.utc)
-                if datetime.now(timezone.utc) - token_time > timedelta(hours=VERIFICATION_TOKEN_EXPIRE_HOURS):
-                    db.close()
-                    st.error("認証コードの有効期限が切れています。")
-                else:
-                    db.execute("UPDATE users SET is_verified = 1, verification_token = NULL WHERE id = ?", (user["id"],))
-                    db.commit()
-                    db.close()
-                    st.success(f"{user['email']} の認証完了！「ログイン」タブへ。")
+                    remaining = MAX_LOGIN_ATTEMPTS - attempts
+                    st.error(f"パスワードが正しくありません（残り{remaining}回）")
 
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 
 # ---------------------------------------------------------------------------
@@ -1357,10 +1213,6 @@ def _fetch_notion_page_content(token: str, page_id: str) -> str:
 def main():
     st.set_page_config(page_title="Newsletter AI", page_icon="📧", layout="wide")
 
-    # FIX #1: Handle verification URL BEFORE anything else
-    if handle_email_verification():
-        st.stop()
-
     init_db()
     require_login()
 
@@ -1374,7 +1226,7 @@ def main():
 
         pages = ["メルマガ生成", "生成履歴", "ファイル管理"]
         if is_admin():
-            pages += ["指示書設定", "ユーザー管理"]
+            pages += ["指示書設定"]
         page = st.radio("メニュー", pages, label_visibility="collapsed")
 
         st.markdown("<div style='flex:1;'></div>", unsafe_allow_html=True)
@@ -1391,8 +1243,6 @@ def main():
         page_files()
     elif page == "指示書設定":
         page_instructions()
-    elif page == "ユーザー管理":
-        page_users()
 
 
 if __name__ == "__main__":
