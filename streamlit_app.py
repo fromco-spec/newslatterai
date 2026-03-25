@@ -641,7 +641,11 @@ def authenticate_admin(password: str) -> dict | None:
     admin = db.execute("SELECT * FROM users WHERE role = 'admin' LIMIT 1").fetchone()
     db.close()
     if admin and verify_password(password, admin["hashed_password"]):
-        return {"username": admin["username"], "email": admin.get("email", ""), "role": "admin"}
+        try:
+            email = admin["email"]
+        except (IndexError, KeyError):
+            email = ""
+        return {"username": admin["username"], "email": email or "", "role": "admin"}
     return None
 
 
