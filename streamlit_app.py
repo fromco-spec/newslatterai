@@ -674,21 +674,20 @@ def page_generate():
         st.error("ANTHROPIC_API_KEY が未設定です。管理者に連絡してください。")
         return
 
-    # Notion integration - multiple databases
+    # Notion integration - direct page references
     notion_token = get_secret("NOTION_API_KEY")
-    NOTION_DATABASES = {
-        "NOTION_DB_SHOHIN": "商品情報",
-        "NOTION_DB_GAIBU": "外部情報",
-        "NOTION_DB_MIRYOKU": "魅力情報",
-        "NOTION_DB_QA": "Q&A",
-        "NOTION_DATABASE_ID": "Notion",  # fallback for single DB config
+    NOTION_PAGES = {
+        "NOTION_PAGE_SHOHIN": "商品情報",
+        "NOTION_PAGE_GAIBU": "外部情報",
+        "NOTION_PAGE_MIRYOKU": "魅力情報",
+        "NOTION_PAGE_QA": "Q&A",
     }
-    notion_dbs = {}
-    for key, label in NOTION_DATABASES.items():
-        db_id = get_secret(key)
-        if db_id:
-            notion_dbs[key] = {"id": db_id, "label": label}
-    use_notion = bool(notion_token and notion_dbs)
+    notion_pages_config = {}
+    for key, label in NOTION_PAGES.items():
+        page_id = get_secret(key)
+        if page_id:
+            notion_pages_config[key] = {"id": page_id, "label": label}
+    use_notion = bool(notion_token and notion_pages_config)
 
     # Reference source selection
     source_options = ["なし"]
@@ -699,45 +698,32 @@ def page_generate():
     ref_source = st.radio("参考データソース", source_options, horizontal=True)
 
     selected_files = []
-    all_notion_pages = []
-    selected_ids = []
+    selected_notion_keys = []
 
     if ref_source == "Notion" and use_notion:
-        # Show connected databases and their pages
-        for db_key, db_meta in notion_dbs.items():
-            db_info = _fetch_notion_db_info(notion_token, db_meta["id"])
-            db_label = db_info["title"] if db_info else db_meta["label"]
-            notion_url = db_info.get("url", "") if db_info else ""
+        st.caption("参照する Notion ページを選択してください")
 
-            if db_info:
-                st.markdown(f"""<div class='app-card' style='padding:0.75rem 1rem;margin-bottom:0.5rem;'>
-                    <span class='badge-ok'>{db_meta['label']}</span>&nbsp;&nbsp;
-                    <strong>{db_label}</strong>
-                    {f"&nbsp;&nbsp;<a href='{notion_url}' target='_blank' style='font-size:0.8rem;color:var(--accent);'>開く</a>" if notion_url else ""}
-                </div>""", unsafe_allow_html=True)
+        # Show each page with connection status and checkbox
+        for page_key, page_meta in notion_pages_config.items():
+            page_info = _fetch_notion_page_info(notion_token, page_meta["id"])
+            if page_info:
+                col1, col2 = st.columns([5, 1])
+                with col1:
+                    checked = st.checkbox(
+                        f"**{page_meta['label']}** — {page_info['title']}",
+                        key=f"notion_{page_key}",
+                    )
+                    if checked:
+                        selected_notion_keys.append(page_key)
+                with col2:
+                    if page_info.get("url"):
+                        st.markdown(f"<a href='{page_info['url']}' target='_blank' style='font-size:0.8rem;color:var(--accent);'>開く</a>", unsafe_allow_html=True)
             else:
-                st.markdown(f"""<div class='app-card' style='padding:0.75rem 1rem;margin-bottom:0.5rem;'>
-                    <span class='badge-pending'>{db_meta['label']}</span>&nbsp;&nbsp;
-                    接続エラー（ID: {db_meta['id'][:8]}...）
+                st.markdown(f"""<div style='padding:0.5rem 0;'>
+                    <span class='badge-pending'>未接続</span>&nbsp;
+                    {page_meta['label']}（インテグレーションの共有設定を確認）
                 </div>""", unsafe_allow_html=True)
 
-        # Fetch pages from all connected databases
-        for db_key, db_meta in notion_dbs.items():
-            pages = _fetch_notion_pages(notion_token, db_meta["id"])
-            for p in pages:
-                p["db_label"] = db_meta["label"]
-                all_notion_pages.append(p)
-
-        if all_notion_pages:
-            selected_ids = st.multiselect(
-                "参照するページを選択",
-                options=[p["id"] for p in all_notion_pages],
-                format_func=lambda pid: next(
-                    (f"[{p['db_label']}] {p['title']}" for p in all_notion_pages if p["id"] == pid), pid
-                ),
-            )
-        else:
-            st.info("接続済みデータベースにページがありません。Notion でインテグレーションの共有設定を確認してください。")
     elif ref_source == "アップロードファイル":
         db = get_db()
         files = db.execute("SELECT * FROM uploaded_files ORDER BY category, original_name").fetchall()
@@ -777,12 +763,11 @@ def page_generate():
 
                 # Build reference data
                 extra_context = ""
-                if ref_source == "Notion" and use_notion and selected_ids:
-                    for pid in selected_ids:
-                        content = _fetch_notion_page_content(notion_token, pid)
-                        page_info = next((p for p in all_notion_pages if p["id"] == pid), {})
-                        title = f"[{page_info.get('db_label', '')}] {page_info.get('title', '')}"
-                        extra_context += f"\n### {title}\n{content}\n"
+                if ref_source == "Notion" and use_notion and selected_notion_keys:
+                    for page_key in selected_notion_keys:
+                        page_meta = notion_pages_config[page_key]
+                        content = _fetch_notion_page_content(notion_token, page_meta["id"])
+                        extra_context += f"\n### {page_meta['label']}\n{content}\n"
 
                 # Load instructions
                 footer_text = get_instruction("footer")
@@ -1082,12 +1067,12 @@ def page_users():
 # ---------------------------------------------------------------------------
 # Notion integration (FIX #3)
 # ---------------------------------------------------------------------------
-def _fetch_notion_db_info(token: str, database_id: str) -> dict | None:
-    """Notion データベースのタイトル・URL を取得"""
+def _fetch_notion_page_info(token: str, page_id: str) -> dict | None:
+    """Notion ページのタイトル・URL を取得"""
     try:
         import requests
         resp = requests.get(
-            f"https://api.notion.com/v1/databases/{database_id}",
+            f"https://api.notion.com/v1/pages/{page_id}",
             headers={
                 "Authorization": f"Bearer {token}",
                 "Notion-Version": "2022-06-28",
@@ -1096,43 +1081,18 @@ def _fetch_notion_db_info(token: str, database_id: str) -> dict | None:
         )
         resp.raise_for_status()
         data = resp.json()
-        title = "".join(t.get("plain_text", "") for t in data.get("title", []))
+        title = ""
+        for prop in data.get("properties", {}).values():
+            if prop.get("type") == "title":
+                title = "".join(t.get("plain_text", "") for t in prop.get("title", []))
+                break
         return {
             "title": title or "Untitled",
             "url": data.get("url", ""),
-            "id": database_id,
+            "id": page_id,
         }
     except Exception:
         return None
-
-
-def _fetch_notion_pages(token: str, database_id: str) -> list[dict]:
-    """Notion DB からページ一覧を取得"""
-    try:
-        import requests
-        resp = requests.post(
-            f"https://api.notion.com/v1/databases/{database_id}/query",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Notion-Version": "2022-06-28",
-                "Content-Type": "application/json",
-            },
-            json={"page_size": 50},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        pages = []
-        for item in resp.json().get("results", []):
-            title = ""
-            for prop in item.get("properties", {}).values():
-                if prop.get("type") == "title":
-                    title = "".join(t.get("plain_text", "") for t in prop.get("title", []))
-                    break
-            pages.append({"id": item["id"], "title": title or "Untitled"})
-        return pages
-    except Exception as e:
-        st.warning(f"Notion 接続エラー: {e}")
-        return []
 
 
 def _fetch_notion_page_content(token: str, page_id: str) -> str:
