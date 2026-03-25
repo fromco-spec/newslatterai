@@ -20,6 +20,7 @@ UPLOAD_DIR = _UPLOAD_DIR
 
 MAX_CHARS_PER_FILE = 3000
 MAX_TOTAL_REFERENCE_CHARS = 10000
+MAX_SKELETON_CHARS = 2500
 
 
 def _truncate(content: str, max_chars: int = MAX_CHARS_PER_FILE) -> str:
@@ -29,103 +30,113 @@ def _truncate(content: str, max_chars: int = MAX_CHARS_PER_FILE) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Style extraction from HTML templates
+# HTML skeleton extractor
 # ---------------------------------------------------------------------------
-class _StyleExtractor(HTMLParser):
-    """HTMLテンプレートからスタイル情報を抽出"""
+class _SkeletonBuilder(HTMLParser):
+    """HTMLからテキスト内容を除去し、構造+スタイルの骨格を抽出"""
+
+    SKIP_TAGS = {"script", "noscript"}
+    PLACEHOLDER_TAGS = {"h1", "h2", "h3", "h4", "p", "li", "span", "a", "td", "th", "title"}
 
     def __init__(self):
         super().__init__()
-        self._in_style = False
-        self.css_blocks = []
-        self.inline_styles = {}
-        self.colors = set()
-        self.fonts = set()
-        self.layout = "unknown"
+        self.parts = []
+        self._skip_depth = 0
+        self._current_tag = None
 
     def handle_starttag(self, tag, attrs):
-        attrs_dict = dict(attrs)
-        if tag == "style":
-            self._in_style = True
+        if tag in self.SKIP_TAGS:
+            self._skip_depth += 1
             return
-        style = attrs_dict.get("style", "")
-        if style:
-            key = tag
-            if tag in self.inline_styles:
-                key = f"{tag}_{len(self.inline_styles)}"
-            self.inline_styles[key] = style
-            self._extract_from_style(style)
-        if tag == "table":
-            self.layout = "table"
+        if self._skip_depth:
+            return
 
-    def handle_data(self, data):
-        if self._in_style:
-            self.css_blocks.append(data)
-            self._extract_from_style(data)
+        self._current_tag = tag
+        attrs_str = ""
+        for k, v in attrs:
+            if k in ("style", "class", "width", "height", "align", "valign",
+                      "bgcolor", "cellpadding", "cellspacing", "border"):
+                if v:
+                    attrs_str += f' {k}="{v}"'
+        self.parts.append(f"<{tag}{attrs_str}>")
 
     def handle_endtag(self, tag):
-        if tag == "style":
-            self._in_style = False
+        if tag in self.SKIP_TAGS:
+            self._skip_depth = max(0, self._skip_depth - 1)
+            return
+        if self._skip_depth:
+            return
+        self.parts.append(f"</{tag}>")
 
-    def _extract_from_style(self, css: str):
-        for color in re.findall(r'#[0-9a-fA-F]{3,8}', css):
-            self.colors.add(color.lower())
-        for color in re.findall(r'rgb\([^)]+\)', css):
-            self.colors.add(color)
-        for font in re.findall(r"font-family\s*:\s*([^;\"']+)", css):
-            self.fonts.add(font.strip().strip("'\""))
+    def handle_data(self, data):
+        if self._skip_depth:
+            return
+        text = data.strip()
+        if not text:
+            return
+        if self._current_tag in self.PLACEHOLDER_TAGS:
+            self.parts.append("[...]")
+        # Other text (inside style tags etc) is kept
+        elif self._current_tag == "style":
+            self.parts.append(text)
+
+    def get_skeleton(self) -> str:
+        raw = "".join(self.parts)
+        # Collapse repeated [...] placeholders
+        raw = re.sub(r'(\[\.\.\.]\s*){2,}', '[...]', raw)
+        return raw
 
 
 def extract_style_summary(html_content: str) -> str:
-    """HTMLテンプレートからスタイル概要を抽出（トークン節約用）"""
-    parser = _StyleExtractor()
+    """HTMLテンプレートから構造骨格を抽出（テキスト除去、スタイル保持）"""
+    builder = _SkeletonBuilder()
     try:
-        parser.feed(html_content)
+        builder.feed(html_content)
     except Exception:
         pass
 
-    lines = ["以下のデザインスタイルを忠実に再現してください:"]
+    skeleton = builder.get_skeleton()
 
-    if parser.layout == "table":
-        lines.append("- レイアウト: テーブルベース（メール互換性重視）")
+    if len(skeleton) > MAX_SKELETON_CHARS:
+        skeleton = skeleton[:MAX_SKELETON_CHARS] + "\n<!-- 以下省略 -->"
 
-    if parser.colors:
-        sorted_colors = sorted(parser.colors)[:10]
-        lines.append(f"- カラーパレット: {', '.join(sorted_colors)}")
+    return skeleton
 
-    if parser.fonts:
-        lines.append(f"- フォント: {', '.join(list(parser.fonts)[:5])}")
 
-    # Extract key structural styles
-    key_elements = {}
-    for tag_key, style in parser.inline_styles.items():
-        tag = tag_key.split("_")[0]
-        if tag in ("body", "table", "td", "h1", "h2", "h3", "p", "a", "div", "img"):
-            if tag not in key_elements:
-                key_elements[tag] = style
+def extract_multi_template_summary(templates: list[tuple[str, str]]) -> str:
+    """複数テンプレートから統合スタイル概要を生成。
+    templates: [(name, html_content), ...]
+    """
+    if not templates:
+        return ""
 
-    if key_elements:
-        lines.append("- 主要な要素スタイル:")
-        for tag, style in list(key_elements.items())[:8]:
-            # Truncate very long inline styles
-            short = style[:150] + "..." if len(style) > 150 else style
-            lines.append(f"  - <{tag}>: {short}")
+    if len(templates) == 1:
+        name, html = templates[0]
+        skeleton = extract_style_summary(html)
+        return f"【装飾テンプレート: {name}】\n以下のHTML構造・デザインを忠実に再現してください。テキスト内容は[...]で省略されています。\n\n{skeleton}"
 
-    # Extract overall feel from CSS blocks
-    css_text = "\n".join(parser.css_blocks)
-    if "border-radius" in css_text:
-        lines.append("- 角丸デザインを使用")
-    if "box-shadow" in css_text or "box-shadow" in str(parser.inline_styles):
-        lines.append("- シャドウ効果を使用")
-    if "gradient" in css_text.lower():
-        lines.append("- グラデーションを使用")
+    parts = []
+    per_template_limit = max(800, MAX_SKELETON_CHARS // len(templates))
 
-    if len(lines) <= 1:
-        # Fallback: send a compact excerpt of the HTML structure
-        compact = html_content[:800]
-        lines.append(f"- テンプレートHTML構造（抜粋）:\n{compact}")
+    parts.append(f"【装飾テンプレート（{len(templates)}件）】")
+    parts.append("以下の複数テンプレートに共通するデザインパターン・構造・配色・レイアウトを分析し、")
+    parts.append("それらのスタイルを忠実に再現してメルマガを作成してください。")
+    parts.append("テキスト内容は[...]で省略されています。\n")
 
-    return "\n".join(lines)
+    for i, (name, html) in enumerate(templates, 1):
+        builder = _SkeletonBuilder()
+        try:
+            builder.feed(html)
+        except Exception:
+            continue
+        skeleton = builder.get_skeleton()
+        if len(skeleton) > per_template_limit:
+            skeleton = skeleton[:per_template_limit] + "\n<!-- 省略 -->"
+        parts.append(f"--- テンプレート{i}: {name} ---")
+        parts.append(skeleton)
+        parts.append("")
+
+    return "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------

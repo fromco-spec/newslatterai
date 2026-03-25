@@ -744,26 +744,34 @@ def page_generate():
 
     st.markdown("---")
 
-    # Decoration templates
+    # Decoration templates (multiple selection)
     db_conn = get_db()
     deco_files = db_conn.execute(
         "SELECT * FROM uploaded_files WHERE category = 'decoration' ORDER BY original_name"
     ).fetchall()
     db_conn.close()
 
-    template_options = {"none": "テンプレートなし（デフォルト）"}
-    for f in deco_files:
-        template_options[f"{f['category']}/{f['filename']}"] = f["original_name"]
+    selected_templates = []
+    if deco_files:
+        template_map = {f"{f['category']}/{f['filename']}": f["original_name"] for f in deco_files}
+        selected_templates = st.multiselect(
+            "装飾テンプレート（複数選択可）",
+            options=list(template_map.keys()),
+            format_func=lambda x: template_map[x],
+            help="複数選択するとデザインパターンをより正確に再現します",
+        )
 
-    selected_template = st.selectbox("装飾テンプレート", list(template_options.keys()),
-                                     format_func=lambda x: template_options[x])
-
-    if selected_template != "none":
-        template_path = os.path.join(UPLOAD_DIR, selected_template)
-        if os.path.exists(template_path):
-            with st.expander("テンプレート プレビュー"):
-                tpl_html = read_file_content(template_path)
-                st.components.v1.html(tpl_html, height=350, scrolling=True)
+        if selected_templates:
+            with st.expander(f"テンプレート プレビュー（{len(selected_templates)}件）"):
+                for tpl_key in selected_templates:
+                    tpl_path = os.path.join(UPLOAD_DIR, tpl_key)
+                    if os.path.exists(tpl_path):
+                        st.caption(template_map[tpl_key])
+                        tpl_html = read_file_content(tpl_path)
+                        st.components.v1.html(tpl_html, height=300, scrolling=True)
+                        st.markdown("---")
+    else:
+        st.caption("装飾テンプレートなし（ファイル管理 → 装飾テンプレートからHTMLをアップロード）")
 
     with st.form("generate_form"):
         prompt = st.text_area("作成指示", placeholder="例: 春の新商品キャンペーンのお知らせメルマガを作成してください", height=100)
@@ -789,14 +797,19 @@ def page_generate():
                         content = _fetch_notion_page_content(notion_token, page_meta["id"])
                         extra_context += f"\n### {page_meta['label']}\n{content}\n"
 
-                # Extract style from decoration template
+                # Extract style from decoration templates
                 template_style_summary = None
-                if selected_template != "none":
-                    from ai_service import extract_style_summary
-                    tpl_path = os.path.join(UPLOAD_DIR, selected_template)
-                    if os.path.exists(tpl_path):
-                        tpl_content = read_file_content(tpl_path)
-                        template_style_summary = extract_style_summary(tpl_content)
+                if selected_templates:
+                    from ai_service import extract_multi_template_summary
+                    tpl_data = []
+                    for tpl_key in selected_templates:
+                        tpl_path = os.path.join(UPLOAD_DIR, tpl_key)
+                        if os.path.exists(tpl_path):
+                            tpl_content = read_file_content(tpl_path)
+                            tpl_name = template_map.get(tpl_key, tpl_key)
+                            tpl_data.append((tpl_name, tpl_content))
+                    if tpl_data:
+                        template_style_summary = extract_multi_template_summary(tpl_data)
 
                 # Load instructions
                 footer_text = get_instruction("footer")
