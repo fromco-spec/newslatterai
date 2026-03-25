@@ -1,21 +1,14 @@
 [server]
 maxUploadSize = 10
-# クローズド運用: ブラウザ自動起動を無効化（サーバー環境向け）
 headless = true
-# CORS を無効化（同一オリジンのみ許可）
 enableCORS = false
-# XSRF 保護を有効化
 enableXsrfProtection = true
-# WebSocket 接続の許可元を制限（社内ネットワークに合わせて変更）
-# address = "0.0.0.0"
-# port = 8501
 
 [browser]
-# 外部からの収集データ送信を無効化
 gatherUsageStats = false
 
 [theme]
-primaryColor = "#4F46E5"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F8F9FA"
-textColor = "#1F2937"
+primaryColor = "#FB7185"
+backgroundColor = "#FAFAFA"
+secondaryBackgroundColor = "#F1F5F9"
+textColor = "#333333"
