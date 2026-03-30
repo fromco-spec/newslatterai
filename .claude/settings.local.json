@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git init:*)",
+      "Bash(grep -E '\\\\.env$|secrets\\\\.toml$|app\\\\.db$')",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(gh auth:*)",
+      "Bash(xargs git:*)",
+      "Bash(grep -iE 'env$|secret|key|password|credential|token')",
+      "Bash(git reset:*)",
+      "Bash(python3 -c \"import py_compile; py_compile.compile\\(''streamlit_app.py'', doraise=True\\)\")",
+      "Bash(pip install:*)",
+      "Bash(python3 -m pip --version)",
+      "Bash(conda --version)",
+      "Read(//home/koki/miniconda3/bin/**)",
+      "Read(//home/koki/anaconda3/bin/**)",
+      "Read(//home/koki/**)",
+      "Read(//mnt/c/Users/from_/AppData/Local/Programs/Python/**)",
+      "Read(//mnt/c/**)",
+      "Bash(cmd.exe /c \"where python\")",
+      "Bash(cmd.exe /c \"where pip\")",
+      "Bash(\"/mnt/c/Users/from_/AppData/Local/Programs/Python/Python313/Scripts/pip.exe\" install:*)"
+    ]
+  }
+}

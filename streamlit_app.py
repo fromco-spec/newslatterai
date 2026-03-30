@@ -39,33 +39,44 @@ MAX_UPLOAD_SIZE = 10 * 1024 * 1024
 
 
 # ---------------------------------------------------------------------------
-# UI Design System — Notion / Airbnb inspired
+# UI Design System — Linear / Vercel / Raycast inspired
+# Glassmorphism + Fluid Gradients + Micro-interactions
 # ---------------------------------------------------------------------------
 CUSTOM_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* ── Design Tokens ── */
 :root {
-    --bg:             #FAFAFA;
-    --bg-subtle:      #F1F5F9;
-    --card:           #FFFFFF;
-    --text:           #333333;
-    --text-secondary: #64748B;
-    --text-muted:     #94A3B8;
-    --main:           #1E293B;
-    --accent:         #FB7185;
-    --accent-hover:   #F43F5E;
-    --accent-soft:    #FFF1F2;
-    --border:         #F1F5F9;
-    --border-hover:   #E2E8F0;
-    --shadow-sm:      0 1px 2px rgba(0,0,0,0.04);
-    --shadow-md:      0 4px 16px rgba(0,0,0,0.06);
-    --shadow-lg:      0 8px 30px rgba(0,0,0,0.08);
-    --radius:         14px;
-    --radius-sm:      10px;
+    --bg:             #09090B;
+    --bg-subtle:      #18181B;
+    --bg-elevated:    #1C1C20;
+    --card:           rgba(255,255,255,0.03);
+    --card-hover:     rgba(255,255,255,0.06);
+    --card-border:    rgba(255,255,255,0.06);
+    --card-border-hover: rgba(255,255,255,0.12);
+    --text:           #FAFAFA;
+    --text-secondary: #A1A1AA;
+    --text-muted:     #52525B;
+    --accent:         #8B5CF6;
+    --accent-hover:   #A78BFA;
+    --accent-glow:    rgba(139,92,246,0.25);
+    --accent-soft:    rgba(139,92,246,0.1);
+    --gradient-1:     linear-gradient(135deg, #8B5CF6 0%, #EC4899 50%, #F59E0B 100%);
+    --gradient-2:     linear-gradient(135deg, #06B6D4 0%, #8B5CF6 100%);
+    --gradient-3:     linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%);
+    --success:        #10B981;
+    --warning:        #F59E0B;
+    --error:          #EF4444;
+    --border:         rgba(255,255,255,0.06);
+    --border-hover:   rgba(255,255,255,0.12);
+    --shadow-glow:    0 0 40px rgba(139,92,246,0.15);
+    --radius:         16px;
+    --radius-sm:      12px;
+    --radius-xs:      8px;
     --radius-pill:    999px;
-    --transition:     all 0.2s cubic-bezier(0.4,0,0.2,1);
+    --transition:     all 0.25s cubic-bezier(0.4,0,0.2,1);
+    --transition-spring: all 0.4s cubic-bezier(0.34,1.56,0.64,1);
 }
 
 /* ── Global ── */
@@ -73,83 +84,133 @@ html, body, [class*="css"] {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
     color: var(--text) !important;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 .main {
     background: var(--bg) !important;
 }
 .main .block-container {
-    max-width: 920px;
-    padding: 2.5rem 2rem 4rem;
+    max-width: 960px;
+    padding: 2.5rem 2rem 5rem;
+}
+
+/* ── Animated mesh gradient background ── */
+.main::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background:
+        radial-gradient(ellipse at 20% 50%, rgba(139,92,246,0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(236,72,153,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 60% 80%, rgba(6,182,212,0.05) 0%, transparent 50%);
+    animation: meshMove 20s ease-in-out infinite alternate;
+    pointer-events: none;
+    z-index: 0;
+}
+@keyframes meshMove {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    33% { transform: translate(2%, -2%) rotate(1deg); }
+    66% { transform: translate(-1%, 1%) rotate(-0.5deg); }
+    100% { transform: translate(1%, -1%) rotate(0.5deg); }
 }
 
 /* ── Sidebar ── */
 section[data-testid="stSidebar"] {
-    background: var(--main) !important;
-    border-right: none !important;
+    background: rgba(9,9,11,0.95) !important;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-right: 1px solid var(--border) !important;
 }
 section[data-testid="stSidebar"] * {
-    color: #CBD5E1 !important;
+    color: var(--text-secondary) !important;
 }
 section[data-testid="stSidebar"] h1,
 section[data-testid="stSidebar"] h2,
 section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] h4,
 section[data-testid="stSidebar"] strong {
-    color: #F8FAFC !important;
+    color: var(--text) !important;
 }
 section[data-testid="stSidebar"] .stRadio > label {
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     font-weight: 500;
-    padding: 0.1rem 0;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted) !important;
 }
 section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label {
-    padding: 0.5rem 0.75rem;
-    border-radius: var(--radius-sm);
+    padding: 0.6rem 0.85rem;
+    border-radius: var(--radius-xs);
     transition: var(--transition);
+    font-size: 0.875rem;
+    letter-spacing: 0;
+    text-transform: none;
 }
 section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label:hover {
-    background: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.05);
+    color: var(--text) !important;
 }
 section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label[data-checked="true"],
 section[data-testid="stSidebar"] .stRadio [role="radiogroup"] [aria-checked="true"] {
-    background: rgba(251,113,133,0.15) !important;
-    color: #FB7185 !important;
+    background: var(--accent-soft) !important;
+    color: var(--accent-hover) !important;
 }
 section[data-testid="stSidebar"] hr {
-    border-color: rgba(255,255,255,0.1) !important;
+    border-color: var(--border) !important;
 }
 section[data-testid="stSidebar"] .stButton > button {
-    background: rgba(255,255,255,0.08) !important;
-    border: 1px solid rgba(255,255,255,0.12) !important;
-    color: #CBD5E1 !important;
+    background: rgba(255,255,255,0.04) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-secondary) !important;
+    backdrop-filter: blur(10px);
 }
 section[data-testid="stSidebar"] .stButton > button:hover {
-    background: rgba(255,255,255,0.14) !important;
-    color: #F8FAFC !important;
+    background: rgba(255,255,255,0.08) !important;
+    border-color: var(--border-hover) !important;
+    color: var(--text) !important;
 }
 
-/* ── Cards ── */
+/* ── Glass Cards ── */
 .app-card {
     background: var(--card);
+    backdrop-filter: blur(12px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
     border-radius: var(--radius);
     padding: 1.5rem 1.75rem;
     margin-bottom: 1.25rem;
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--card-border);
     transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+.app-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
 }
 .app-card:hover {
-    box-shadow: var(--shadow-md);
-    border-color: var(--border-hover);
+    background: var(--card-hover);
+    border-color: var(--card-border-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
 }
 
 /* ── Page headers ── */
 .page-title {
-    font-size: 1.875rem;
-    font-weight: 700;
-    letter-spacing: -0.025em;
-    color: var(--main);
+    font-size: 2.25rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    background: var(--gradient-1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     margin-bottom: 0.25rem;
-    line-height: 1.2;
+    line-height: 1.15;
 }
 .page-subtitle {
     font-size: 0.95rem;
@@ -161,16 +222,19 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 
 /* ── Auth ── */
 .auth-container {
-    max-width: 400px;
-    margin: 3rem auto;
+    max-width: 420px;
+    margin: 4rem auto;
 }
 .auth-logo {
-    font-size: 1.75rem;
-    font-weight: 700;
+    font-size: 2rem;
+    font-weight: 800;
     text-align: center;
-    letter-spacing: -0.03em;
-    color: var(--main);
-    margin-bottom: 0.125rem;
+    letter-spacing: -0.04em;
+    background: var(--gradient-1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.25rem;
 }
 .auth-tagline {
     text-align: center;
@@ -185,39 +249,42 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     border-radius: var(--radius-sm) !important;
     font-weight: 500 !important;
     font-size: 0.875rem !important;
-    padding: 0.625rem 1.5rem !important;
+    padding: 0.65rem 1.5rem !important;
     transition: var(--transition) !important;
     border: 1px solid var(--border-hover) !important;
-    background: var(--card) !important;
-    color: var(--text) !important;
-    box-shadow: var(--shadow-sm) !important;
+    background: var(--bg-subtle) !important;
+    color: var(--text-secondary) !important;
+    position: relative;
+    overflow: hidden;
 }
 .stButton > button:hover {
     transform: translateY(-1px);
-    box-shadow: var(--shadow-md) !important;
-    border-color: #CBD5E1 !important;
+    border-color: var(--accent) !important;
+    color: var(--text) !important;
+    box-shadow: 0 0 20px rgba(139,92,246,0.15) !important;
 }
 .stButton > button:active {
-    transform: translateY(0);
+    transform: translateY(0) scale(0.98);
 }
 .stButton > button[kind="primary"],
-.stFormSubmitButton > button[kind="primary"] {
+.stFormSubmitButton > button[kind="primary"],
+.stFormSubmitButton > button {
     background: var(--accent) !important;
     color: #FFFFFF !important;
     border: none !important;
-    box-shadow: 0 2px 8px rgba(251,113,133,0.3) !important;
+    box-shadow: 0 4px 20px var(--accent-glow) !important;
+    font-weight: 600 !important;
+    border-radius: var(--radius-sm) !important;
+    font-size: 0.875rem !important;
+    padding: 0.65rem 1.5rem !important;
+    transition: var(--transition) !important;
 }
 .stButton > button[kind="primary"]:hover,
-.stFormSubmitButton > button[kind="primary"]:hover {
+.stFormSubmitButton > button[kind="primary"]:hover,
+.stFormSubmitButton > button:hover {
     background: var(--accent-hover) !important;
-    box-shadow: 0 4px 16px rgba(251,113,133,0.35) !important;
-}
-.stFormSubmitButton > button {
-    border-radius: var(--radius-sm) !important;
-    font-weight: 500 !important;
-    font-size: 0.875rem !important;
-    padding: 0.625rem 1.5rem !important;
-    transition: var(--transition) !important;
+    box-shadow: 0 8px 30px rgba(139,92,246,0.35) !important;
+    transform: translateY(-2px);
 }
 
 /* ── Form inputs ── */
@@ -228,14 +295,14 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     font-family: 'Inter', sans-serif !important;
     font-size: 0.9rem !important;
     padding: 0.75rem 1rem !important;
-    background: var(--card) !important;
+    background: var(--bg-subtle) !important;
     color: var(--text) !important;
     transition: var(--transition) !important;
 }
 .stTextInput > div > div > input:focus,
 .stTextArea > div > div > textarea:focus {
     border-color: var(--accent) !important;
-    box-shadow: 0 0 0 3px var(--accent-soft) !important;
+    box-shadow: 0 0 0 3px var(--accent-soft), 0 0 20px var(--accent-glow) !important;
 }
 .stTextInput > div > div > input::placeholder,
 .stTextArea > div > div > textarea::placeholder {
@@ -244,34 +311,41 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 .stSelectbox > div > div {
     border-radius: var(--radius-sm) !important;
     border: 1px solid var(--border-hover) !important;
+    background: var(--bg-subtle) !important;
 }
 .stMultiSelect > div > div {
     border-radius: var(--radius-sm) !important;
     border: 1px solid var(--border-hover) !important;
+    background: var(--bg-subtle) !important;
+}
+label, .stTextInput label, .stTextArea label, .stSelectbox label, .stMultiSelect label, .stRadio label, .stCheckbox label {
+    color: var(--text-secondary) !important;
 }
 
 /* ── Tabs ── */
 .stTabs [data-baseweb="tab-list"] {
-    gap: 4px;
+    gap: 2px;
     background: var(--bg-subtle);
     border-radius: var(--radius-sm);
     padding: 4px;
+    border: 1px solid var(--border);
 }
 .stTabs [data-baseweb="tab"] {
-    border-radius: 8px;
+    border-radius: var(--radius-xs);
     font-weight: 500;
     font-size: 0.825rem;
-    padding: 0.5rem 1.125rem;
-    color: var(--text-secondary);
+    padding: 0.5rem 1.25rem;
+    color: var(--text-muted);
     transition: var(--transition);
 }
 .stTabs [data-baseweb="tab"]:hover {
-    color: var(--text);
+    color: var(--text-secondary);
+    background: rgba(255,255,255,0.03);
 }
 .stTabs [aria-selected="true"] {
-    background: var(--card) !important;
-    color: var(--main) !important;
-    box-shadow: var(--shadow-sm) !important;
+    background: var(--bg-elevated) !important;
+    color: var(--text) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
     font-weight: 600 !important;
 }
 
@@ -280,79 +354,104 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     border-radius: var(--radius-sm) !important;
     font-weight: 500 !important;
     font-size: 0.9rem !important;
-    color: var(--text) !important;
+    color: var(--text-secondary) !important;
     padding: 0.875rem 1rem !important;
     background: var(--bg-subtle) !important;
     border: 1px solid var(--border) !important;
     transition: var(--transition) !important;
 }
 .streamlit-expanderHeader:hover {
-    background: var(--border) !important;
+    background: var(--bg-elevated) !important;
+    border-color: var(--border-hover) !important;
+    color: var(--text) !important;
 }
 .streamlit-expanderContent {
     border: 1px solid var(--border);
     border-top: none;
     border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    background: var(--bg-subtle);
 }
 
-/* ── Stat cards ── */
+/* ── Stat cards (bento grid) ── */
 .stat-row {
     display: flex;
-    gap: 1.25rem;
+    gap: 1rem;
     margin: 1.5rem 0;
 }
 .stat-box {
     flex: 1;
     background: var(--card);
+    backdrop-filter: blur(12px);
     border-radius: var(--radius);
     padding: 1.25rem;
     text-align: center;
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--card-border);
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+.stat-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+}
+.stat-box:hover {
+    border-color: var(--card-border-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
 }
 .stat-value {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--main);
-    letter-spacing: -0.02em;
+    font-size: 1.875rem;
+    font-weight: 800;
+    background: var(--gradient-3);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.03em;
 }
 .stat-label {
     font-size: 0.7rem;
     color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-top: 0.25rem;
+    letter-spacing: 0.1em;
+    margin-top: 0.35rem;
+    font-weight: 500;
 }
 
 /* ── Badges ── */
 .badge-ok {
     display: inline-block;
-    background: #ECFDF5;
-    color: #059669;
+    background: rgba(16,185,129,0.12);
+    color: #34D399;
     padding: 3px 12px;
     border-radius: var(--radius-pill);
     font-size: 0.7rem;
     font-weight: 600;
     letter-spacing: 0.02em;
+    border: 1px solid rgba(16,185,129,0.2);
 }
 .badge-pending {
     display: inline-block;
-    background: #FFF7ED;
-    color: #EA580C;
+    background: rgba(245,158,11,0.12);
+    color: #FBBF24;
     padding: 3px 12px;
     border-radius: var(--radius-pill);
     font-size: 0.7rem;
     font-weight: 600;
     letter-spacing: 0.02em;
+    border: 1px solid rgba(245,158,11,0.2);
 }
 .badge-info {
     display: inline-block;
     background: var(--accent-soft);
-    color: var(--accent);
+    color: var(--accent-hover);
     padding: 3px 12px;
     border-radius: var(--radius-pill);
     font-size: 0.7rem;
     font-weight: 600;
+    border: 1px solid rgba(139,92,246,0.2);
 }
 
 /* ── Alerts ── */
@@ -360,6 +459,8 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     border-radius: var(--radius-sm) !important;
     border: none !important;
     font-size: 0.875rem;
+    background: var(--bg-subtle) !important;
+    border: 1px solid var(--border) !important;
 }
 
 /* ── Dividers ── */
@@ -374,12 +475,15 @@ hr {
     border-radius: var(--radius-sm) !important;
     font-weight: 500 !important;
     border: 1px solid var(--border-hover) !important;
-    background: var(--card) !important;
+    background: var(--bg-subtle) !important;
+    color: var(--text-secondary) !important;
     transition: var(--transition) !important;
 }
 .stDownloadButton > button:hover {
-    background: var(--bg-subtle) !important;
-    border-color: #CBD5E1 !important;
+    background: var(--bg-elevated) !important;
+    border-color: var(--accent) !important;
+    color: var(--text) !important;
+    box-shadow: 0 0 20px var(--accent-glow) !important;
 }
 
 /* ── Checkbox / Radio ── */
@@ -391,6 +495,8 @@ hr {
 /* ── File uploader ── */
 .stFileUploader > div {
     border-radius: var(--radius-sm) !important;
+    border: 1px dashed var(--border-hover) !important;
+    background: var(--bg-subtle) !important;
 }
 
 /* ── Scrollbar ── */
@@ -402,17 +508,161 @@ hr {
     background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-    background: #CBD5E1;
+    background: rgba(255,255,255,0.1);
     border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background: #94A3B8;
+    background: rgba(255,255,255,0.2);
 }
 
 /* ── Hide Streamlit chrome ── */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
+
+/* ── Section divider with glow ── */
+.glow-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.3;
+    margin: 2.5rem 0;
+}
+
+/* ── Feature cards (bento) ── */
+.bento-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+.bento-item {
+    background: var(--card);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+.bento-item::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+}
+.bento-item:hover {
+    border-color: var(--card-border-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+}
+.bento-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.75rem;
+    display: block;
+}
+.bento-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+}
+.bento-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* ── Floating orb decoration ── */
+.orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+}
+.orb-1 {
+    width: 300px; height: 300px;
+    background: rgba(139,92,246,0.15);
+    top: 10%; right: 10%;
+    animation: float1 15s ease-in-out infinite alternate;
+}
+.orb-2 {
+    width: 250px; height: 250px;
+    background: rgba(236,72,153,0.1);
+    bottom: 20%; left: 5%;
+    animation: float2 18s ease-in-out infinite alternate;
+}
+@keyframes float1 {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(-30px, 20px); }
+}
+@keyframes float2 {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(20px, -30px); }
+}
+
+/* ── Spinner override ── */
+.stSpinner > div {
+    border-color: var(--accent) transparent transparent transparent !important;
+}
+
+/* ── Sidebar brand ── */
+.sidebar-brand {
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    background: var(--gradient-1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.sidebar-user {
+    font-size: 0.75rem;
+    color: var(--text-muted) !important;
+    opacity: 0.6;
+}
+.sidebar-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+}
+.sidebar-status::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    display: inline-block;
+}
+
+/* ── History card ── */
+.history-card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+    transition: var(--transition);
+}
+.history-card:hover {
+    border-color: var(--card-border-hover);
+    background: var(--card-hover);
+}
+.history-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text);
+}
+.history-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+}
 </style>
 """
 
@@ -508,7 +758,6 @@ def init_db():
         )
     """)
 
-    # Instructions table for Claude directives
     c.execute("""
         CREATE TABLE IF NOT EXISTS instructions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -519,7 +768,6 @@ def init_db():
         )
     """)
 
-    # Default admin
     c.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
     if c.fetchone()[0] == 0:
         pw = get_secret("ADMIN_DEFAULT_PASSWORD")
@@ -582,21 +830,21 @@ def send_verification_email(to_email: str, token: str) -> bool:
 
     if app_url:
         verify_link = f"{app_url}/?verify={token}"
-        action_text = f"以下のボタンをクリックしてメールアドレスを確認してください。"
+        action_text = "以下のボタンをクリックしてメールアドレスを確認してください。"
         action_html = f"""
             <p style="margin:30px 0;text-align:center;">
                 <a href="{verify_link}"
-                   style="background:#FB7185;color:#fff;padding:14px 32px;
+                   style="background:#8B5CF6;color:#fff;padding:14px 32px;
                           text-decoration:none;border-radius:12px;font-size:16px;
                           font-weight:600;display:inline-block;">
                     メールアドレスを確認する
                 </a>
             </p>
             <p style="color:#86868b;font-size:13px;">ボタンが動かない場合:<br>
-               <a href="{verify_link}" style="color:#FB7185;word-break:break-all;">{verify_link}</a></p>
+               <a href="{verify_link}" style="color:#8B5CF6;word-break:break-all;">{verify_link}</a></p>
         """
     else:
-        action_text = f"以下の認証コードをアプリの「認証コード入力」画面に入力してください。"
+        action_text = "以下の認証コードをアプリの「認証コード入力」画面に入力してください。"
         action_html = f"""
             <p style="margin:24px 0;padding:20px;background:#f5f5f7;border-radius:12px;
                       font-family:monospace;font-size:20px;text-align:center;
@@ -666,15 +914,15 @@ def is_admin() -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Login Page (admin password only)
+# Login Page
 # ---------------------------------------------------------------------------
 def show_login_page():
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+    st.markdown("<div class='orb orb-1'></div><div class='orb orb-2'></div>", unsafe_allow_html=True)
     st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
     st.markdown("<div class='auth-logo'>Newsletter AI</div>", unsafe_allow_html=True)
     st.markdown("<div class='auth-tagline'>AI-Powered Newsletter Creator</div>", unsafe_allow_html=True)
 
-    # Lockout check
     locked_until = st.session_state.get("login_locked_until", 0)
     if locked_until and time.time() < locked_until:
         remaining = int(locked_until - time.time())
@@ -713,20 +961,19 @@ def show_login_page():
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-
 # ---------------------------------------------------------------------------
 # Page: Generate
 # ---------------------------------------------------------------------------
 def page_generate():
-    st.markdown("<div class='page-title'>メルマガ生成</div>", unsafe_allow_html=True)
-    st.markdown("<div class='page-subtitle'>AIがプロ品質のメルマガを作成します</div>", unsafe_allow_html=True)
+    st.markdown("<div class='page-title'>Create Newsletter</div>", unsafe_allow_html=True)
+    st.markdown("<div class='page-subtitle'>AIがプロ品質のメルマガをリアルタイムで生成します</div>", unsafe_allow_html=True)
 
     api_key = get_secret("ANTHROPIC_API_KEY")
     if not api_key:
         st.error("ANTHROPIC_API_KEY が未設定です。管理者に連絡してください。")
         return
 
-    # Notion integration - direct page references
+    # Notion integration
     notion_token = get_secret("NOTION_API_KEY")
     NOTION_PAGES = {
         "NOTION_PAGE_SHOHIN": "商品情報",
@@ -741,7 +988,9 @@ def page_generate():
             notion_pages_config[key] = {"id": page_id, "label": label}
     use_notion = bool(notion_token and notion_pages_config)
 
-    # Reference source selection
+    # Data source section
+    st.markdown("<div class='glow-divider'></div>", unsafe_allow_html=True)
+
     source_options = ["なし"]
     if use_notion:
         source_options.append("Notion")
@@ -754,8 +1003,6 @@ def page_generate():
 
     if ref_source == "Notion" and use_notion:
         st.caption("参照する Notion ページを選択してください")
-
-        # Show each page with connection status and checkbox
         for page_key, page_meta in notion_pages_config.items():
             page_info = _fetch_notion_page_info(notion_token, page_meta["id"])
             if page_info:
@@ -769,7 +1016,7 @@ def page_generate():
                         selected_notion_keys.append(page_key)
                 with col2:
                     if page_info.get("url"):
-                        st.markdown(f"<a href='{page_info['url']}' target='_blank' style='font-size:0.8rem;color:var(--accent);'>開く</a>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='{page_info['url']}' target='_blank' style='font-size:0.8rem;color:var(--accent-hover);'>開く</a>", unsafe_allow_html=True)
             else:
                 st.markdown(f"""<div style='padding:0.5rem 0;'>
                     <span class='badge-pending'>未接続</span>&nbsp;
@@ -791,7 +1038,7 @@ def page_generate():
 
     st.markdown("---")
 
-    # Decoration templates (multiple selection)
+    # Decoration templates
     db_conn = get_db()
     deco_files = db_conn.execute(
         "SELECT * FROM uploaded_files WHERE category = 'decoration' ORDER BY original_name"
@@ -823,8 +1070,8 @@ def page_generate():
     with st.form("generate_form"):
         prompt = st.text_area("作成指示", placeholder="例: 春の新商品キャンペーンのお知らせメルマガを作成してください", height=100)
         length = st.selectbox("ボリューム", ["short", "medium", "long"], index=1,
-                              format_func=lambda x: {"short": "短め（800〜1200字）", "medium": "標準（1500〜2500字）", "long": "長め（3000〜5000字）"}[x])
-        submitted = st.form_submit_button("生成する", use_container_width=True, type="primary")
+                              format_func=lambda x: {"short": "Short — 800〜1200字", "medium": "Medium — 1500〜2500字", "long": "Long — 3000〜5000字"}[x])
+        submitted = st.form_submit_button("Generate", use_container_width=True, type="primary")
 
     if submitted:
         if not prompt.strip():
@@ -836,7 +1083,6 @@ def page_generate():
                 os.environ["ANTHROPIC_API_KEY"] = api_key
                 os.environ["CLAUDE_MODEL"] = get_secret("CLAUDE_MODEL", "claude-sonnet-4-6")
 
-                # Build reference data
                 extra_context = ""
                 if ref_source == "Notion" and use_notion and selected_notion_keys:
                     for page_key in selected_notion_keys:
@@ -844,7 +1090,6 @@ def page_generate():
                         content = _fetch_notion_page_content(notion_token, page_meta["id"])
                         extra_context += f"\n### {page_meta['label']}\n{content}\n"
 
-                # Extract style from decoration templates
                 template_style_summary = None
                 if selected_templates:
                     from ai_service import extract_multi_template_summary
@@ -858,7 +1103,6 @@ def page_generate():
                     if tpl_data:
                         template_style_summary = extract_multi_template_summary(tpl_data)
 
-                # Load instructions
                 footer_text = get_instruction("footer")
                 custom_instructions = get_instruction("custom_instructions")
 
@@ -878,14 +1122,14 @@ def page_generate():
                 st.error(f"生成エラー: {e}")
                 return
 
-    # Result display (FIX #4: Preview + HTML code)
+    # Result display
     if "generated_html" in st.session_state:
         st.markdown(f"""<div class='stat-row'>
             <div class='stat-box'><div class='stat-value'>{st.session_state.tokens_used:,}</div>
             <div class='stat-label'>Tokens Used</div></div>
         </div>""", unsafe_allow_html=True)
 
-        tab_preview, tab_code = st.tabs(["プレビュー", "HTML コード"])
+        tab_preview, tab_code = st.tabs(["Preview", "HTML Code"])
         with tab_preview:
             st.components.v1.html(st.session_state.generated_html, height=600, scrolling=True)
         with tab_code:
@@ -893,12 +1137,12 @@ def page_generate():
 
         col1, col2 = st.columns(2)
         with col1:
-            st.download_button("HTML ダウンロード", st.session_state.generated_html,
+            st.download_button("Download HTML", st.session_state.generated_html,
                                file_name="newsletter.html", mime="text/html", use_container_width=True)
         with col2:
             with st.form("save_form"):
                 title = st.text_input("タイトル", placeholder="保存名を入力", label_visibility="collapsed")
-                save_btn = st.form_submit_button("保存する", use_container_width=True)
+                save_btn = st.form_submit_button("Save", use_container_width=True)
             if save_btn and title.strip():
                 db = get_db()
                 db.execute(
@@ -912,10 +1156,10 @@ def page_generate():
 
 
 # ---------------------------------------------------------------------------
-# Page: History (FIX #4: add HTML code tab to history)
+# Page: History
 # ---------------------------------------------------------------------------
 def page_history():
-    st.markdown("<div class='page-title'>生成履歴</div>", unsafe_allow_html=True)
+    st.markdown("<div class='page-title'>History</div>", unsafe_allow_html=True)
     st.markdown("<div class='page-subtitle'>過去に生成したメルマガ一覧</div>", unsafe_allow_html=True)
 
     db = get_db()
@@ -929,9 +1173,9 @@ def page_history():
     for nl in newsletters:
         with st.expander(f"{nl['title']}  —  {nl['created_at'][:16]}  ·  {nl['created_by']}"):
             if nl["prompt_used"]:
-                st.caption(f"プロンプト: {nl['prompt_used']}")
+                st.caption(f"Prompt: {nl['prompt_used']}")
 
-            tab_p, tab_c = st.tabs(["プレビュー", "HTML コード"])
+            tab_p, tab_c = st.tabs(["Preview", "HTML Code"])
             with tab_p:
                 st.components.v1.html(nl["html_content"], height=400, scrolling=True)
             with tab_c:
@@ -939,7 +1183,7 @@ def page_history():
 
             col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
-                st.download_button("HTML ダウンロード", nl["html_content"],
+                st.download_button("Download HTML", nl["html_content"],
                                    file_name=f"{nl['title']}.html", mime="text/html",
                                    key=f"dl_{nl['id']}", use_container_width=True)
             with col3:
@@ -956,7 +1200,7 @@ def page_history():
 # Page: Files
 # ---------------------------------------------------------------------------
 def page_files():
-    st.markdown("<div class='page-title'>ファイル管理</div>", unsafe_allow_html=True)
+    st.markdown("<div class='page-title'>Files</div>", unsafe_allow_html=True)
     st.markdown("<div class='page-subtitle'>メルマガ生成に使用する参考データ</div>", unsafe_allow_html=True)
 
     if is_admin():
@@ -968,7 +1212,7 @@ def page_files():
             with col2:
                 uploaded = st.file_uploader("ファイル", type=["txt", "csv", "pdf", "text", "md", "html", "htm"],
                                             label_visibility="collapsed")
-            upload_btn = st.form_submit_button("アップロード", use_container_width=True)
+            upload_btn = st.form_submit_button("Upload", use_container_width=True)
 
         if upload_btn and uploaded:
             content = uploaded.read()
@@ -1019,10 +1263,10 @@ def page_files():
 
 
 # ---------------------------------------------------------------------------
-# Page: Instructions (FIX #5)
+# Page: Instructions
 # ---------------------------------------------------------------------------
 def page_instructions():
-    st.markdown("<div class='page-title'>指示書設定</div>", unsafe_allow_html=True)
+    st.markdown("<div class='page-title'>Settings</div>", unsafe_allow_html=True)
     st.markdown("<div class='page-subtitle'>メルマガ生成時に Claude に自動適用される指示</div>", unsafe_allow_html=True)
 
     if not is_admin():
@@ -1037,7 +1281,7 @@ def page_instructions():
         placeholder="例:\n- 「お客様」ではなく「皆さま」を使用\n- 絵文字は控えめに\n- 必ず会社名「Androots」を冒頭に入れる\n- CTAボタンの文言は「詳しくはこちら」で統一",
     )
 
-    st.markdown("---")
+    st.markdown("<div class='glow-divider'></div>", unsafe_allow_html=True)
 
     st.markdown("#### フッター HTML")
     st.caption("全てのメルマガの末尾に自動挿入される固定フッターです。HTML で記述できます。")
@@ -1069,7 +1313,7 @@ def page_users():
         st.warning("管理者権限が必要です")
         return
 
-    st.markdown("<div class='page-title'>ユーザー管理</div>", unsafe_allow_html=True)
+    st.markdown("<div class='page-title'>Team</div>", unsafe_allow_html=True)
     st.markdown("<div class='page-subtitle'>チームメンバーの招待と管理</div>", unsafe_allow_html=True)
 
     with st.form("add_user_form", clear_on_submit=True):
@@ -1113,7 +1357,7 @@ def page_users():
                 else:
                     st.warning("ユーザー作成済みですが、メール送信に失敗しました")
 
-    st.markdown("---")
+    st.markdown("<div class='glow-divider'></div>", unsafe_allow_html=True)
     st.markdown("#### メンバー一覧")
 
     db = get_db()
@@ -1155,10 +1399,9 @@ def page_users():
 
 
 # ---------------------------------------------------------------------------
-# Notion integration (FIX #3)
+# Notion integration
 # ---------------------------------------------------------------------------
 def _fetch_notion_page_info(token: str, page_id: str) -> dict | None:
-    """Notion ページのタイトル・URL を取得"""
     try:
         import requests
         resp = requests.get(
@@ -1186,7 +1429,6 @@ def _fetch_notion_page_info(token: str, page_id: str) -> dict | None:
 
 
 def _fetch_notion_page_content(token: str, page_id: str) -> str:
-    """Notion ページのブロック内容をテキストで取得"""
     try:
         import requests
         resp = requests.get(
@@ -1215,7 +1457,7 @@ def _fetch_notion_page_content(token: str, page_id: str) -> str:
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    st.set_page_config(page_title="Newsletter AI", page_icon="📧", layout="wide")
+    st.set_page_config(page_title="Newsletter AI", page_icon="✦", layout="wide")
 
     init_db()
     require_login()
@@ -1223,15 +1465,16 @@ def main():
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
     with st.sidebar:
-        st.markdown("#### Newsletter AI")
-        st.markdown(f"<span style='font-size:0.8rem;opacity:0.7;'>{st.session_state.user['username']}</span>", unsafe_allow_html=True)
+        st.markdown("<div class='sidebar-brand'>✦ Newsletter AI</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='sidebar-user'>{st.session_state.user['username']}</div>", unsafe_allow_html=True)
+        st.markdown("<div class='sidebar-status'>Online</div>", unsafe_allow_html=True)
 
         st.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
 
         pages = ["メルマガ生成", "生成履歴", "ファイル管理"]
         if is_admin():
             pages += ["指示書設定"]
-        page = st.radio("メニュー", pages, label_visibility="collapsed")
+        page = st.radio("MENU", pages, label_visibility="collapsed")
 
         st.markdown("<div style='flex:1;'></div>", unsafe_allow_html=True)
         st.divider()
